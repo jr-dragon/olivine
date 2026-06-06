@@ -1,45 +1,24 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
 	"log/slog"
-	"net"
-	"strings"
+	"olivine/internal/server"
 )
 
-type App struct{}
+type App struct {
+	srv server.Server
+}
 
-func (app *App) Run() error {
-	slog.Info("starting olivine server...")
-	listener, err := net.Listen("tcp", ":16879")
-	if err != nil {
-		return fmt.Errorf("failed to listen tcp: %w", err)
-	}
-	defer listener.Close()
-
-	for {
-		connection, err := listener.Accept()
-		if err != nil {
-			slog.Error("failed to accept connection:", slog.Any("error", err))
-			continue
-		}
-		go handleConnection(connection)
+func NewApp() *App {
+	return &App{
+		srv: server.NewServer(),
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	reader := bufio.NewReader(conn)
-	message, err := reader.ReadString('\n')
-	if err != nil {
-		slog.Error("failed to read from conn:", slog.Any("error", err))
-		return
+func (app *App) Run() error {
+	slog.Info("starting olivine server...")
+	if err := app.srv.ListenAndServe(); err != nil {
+		return err
 	}
-
-	ackmsg := strings.ToUpper(strings.ToUpper(message))
-	response := "ACK: " + ackmsg
-	if _, err := conn.Write([]byte(response)); err != nil {
-		slog.Error("failed to write to conn:", slog.Any("error", err))
-		return
-	}
+	return nil
 }

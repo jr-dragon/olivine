@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	
 	"olivine/internal/server"
 )
 
@@ -20,5 +21,6 @@ func (app *App) Run() error {
 	if err := app.srv.ListenAndServe(); err != nil {
 		return err
 	}
+
 	return nil
 }

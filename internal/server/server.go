@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"net"
 	"strings"
+	"time"
 )
 
 type Server interface {
 	ListenAndServe() error
-	Close() error
 }
 
 func NewServer() Server {
@@ -29,7 +29,7 @@ func (s *simpleSrv) ListenAndServe() (err error) {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			slog.Error("failed to accept connection:", slog.Any("error", err))
-			continue
+			return err
 		}
 
 		go s.serve(conn)
@@ -46,12 +46,10 @@ func (s *simpleSrv) serve(conn net.Conn) {
 		return
 	}
 
+	time.Sleep(time.Second * 3)
+
 	if _, err := conn.Write([]byte("ACK: " + strings.ToUpper(msg))); err != nil {
 		slog.Error("failed to write to conn:", slog.Any("error", err))
 		return
 	}
-}
-
-func (s *simpleSrv) Close() error {
-	return s.listener.Close()
 }

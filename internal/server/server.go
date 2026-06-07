@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"log/slog"
 	"net"
 	"olivine/pkg/resp"
@@ -38,12 +37,14 @@ func (s *simpleSrv) ListenAndServe() (err error) {
 func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
 
-	rd := bufio.NewReader(conn)
-	_, err := rd.ReadString('\n')
+	rd := resp.NewReader(conn)
+	cmd, err := rd.Read()
 	if err != nil {
 		slog.Error("failed to read from conn:", slog.Any("error", err))
 		return
 	}
+
+	slog.Info("Read RESP command:", slog.Any("command", cmd))
 
 	if _, err := conn.Write(resp.SimpleString("OK").Marshal()); err != nil {
 		slog.Error("failed to write to conn:", slog.Any("error", err))

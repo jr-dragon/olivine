@@ -3,6 +3,7 @@ package resp
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var (
@@ -48,4 +49,8 @@ func ReadCommand(rd *Reader) (*Command, error) {
 		cmd:  cmd,
 		args: args,
 	}, nil
+}
+
+func (cmd *Command) Command() string {
+	return strings.ToUpper(string(cmd.cmd.data))
 }

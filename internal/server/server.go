@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net"
 
@@ -39,15 +41,17 @@ func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
 
 	rd := resp.NewReader(conn)
-	cmd, err := resp.ReadCommand(rd)
-	if err != nil {
-		slog.Error("failed to read from conn:", slog.Any("error", err))
+	handler := NewHandler()
+
+	ret, err := handler.ServeRESP(context.Background(), rd)
+	if err != nil && errors.Is(err, ErrServer) {
 		return
 	}
+	if ret == nil {
+		ret = resp.NewNullBulkString()
+	}
 
-	slog.Info("Read RESP command:", slog.Any("command", cmd))
-
-	if _, err := conn.Write(resp.SimpleString("OK").Marshal()); err != nil {
+	if _, err := conn.Write(ret.Marshal()); err != nil {
 		slog.Error("failed to write to conn:", slog.Any("error", err))
 		return
 	}

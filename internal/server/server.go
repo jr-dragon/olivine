@@ -13,11 +13,15 @@ type Server interface {
 	ListenAndServe() error
 }
 
-func NewServer() Server {
-	return &simpleSrv{}
+func NewServer(handler Handler) Server {
+	return &simpleSrv{
+		handler: handler,
+	}
 }
 
 type simpleSrv struct {
+	handler Handler
+
 	listener net.Listener
 }
 
@@ -41,9 +45,8 @@ func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
 
 	rd := resp.NewReader(conn)
-	handler := NewHandler()
 
-	ret, err := handler.ServeRESP(context.Background(), rd)
+	ret, err := s.handler.ServeRESP(context.Background(), rd)
 	if err != nil && errors.Is(err, ErrServer) {
 		return
 	}

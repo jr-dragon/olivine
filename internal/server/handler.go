@@ -47,7 +47,7 @@ func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Va
 func (h *simpleHandler) exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	f, ok := h.factory[cmd.Command()]
 	if !ok {
-		err := fmt.Errorf("unknown command: %s", cmd.Command())
+		err := fmt.Errorf("%w: unknown command: %s", ErrClient, cmd.Command())
 		return resp.NewSimpleError(err), err
 	}
 

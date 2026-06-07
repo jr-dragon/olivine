@@ -4,8 +4,7 @@ import (
 	"bufio"
 	"log/slog"
 	"net"
-	"strings"
-	"time"
+	"olivine/pkg/resp"
 )
 
 type Server interface {
@@ -40,15 +39,13 @@ func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
 
 	rd := bufio.NewReader(conn)
-	msg, err := rd.ReadString('\n')
+	_, err := rd.ReadString('\n')
 	if err != nil {
 		slog.Error("failed to read from conn:", slog.Any("error", err))
 		return
 	}
 
-	time.Sleep(time.Second * 3)
-
-	if _, err := conn.Write([]byte("ACK: " + strings.ToUpper(msg))); err != nil {
+	if _, err := conn.Write(resp.SimpleString("OK").Marshal()); err != nil {
 		slog.Error("failed to write to conn:", slog.Any("error", err))
 		return
 	}

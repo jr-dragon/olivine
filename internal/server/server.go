@@ -46,16 +46,19 @@ func (s *simpleSrv) serve(conn net.Conn) {
 
 	rd := resp.NewReader(conn)
 
-	ret, err := s.handler.ServeRESP(context.Background(), rd)
-	if err != nil && errors.Is(err, ErrServer) {
-		return
-	}
-	if ret == nil {
-		ret = resp.NewNullBulkString()
+	for {
+		ret, err := s.handler.ServeRESP(context.Background(), rd)
+		if err != nil && errors.Is(err, ErrServer) {
+			return
+		}
+		if ret == nil {
+			ret = resp.NewNullBulkString()
+		}
+
+		if _, err := conn.Write(ret.Marshal()); err != nil {
+			slog.Error("failed to write to conn:", slog.Any("error", err))
+			return
+		}
 	}
 
-	if _, err := conn.Write(ret.Marshal()); err != nil {
-		slog.Error("failed to write to conn:", slog.Any("error", err))
-		return
-	}
 }

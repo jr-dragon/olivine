@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net"
 	"strings"
-	"time"
 )
 
 type Server interface {
@@ -45,8 +44,6 @@ func (s *simpleSrv) serve(conn net.Conn) {
 		slog.Error("failed to read from conn:", slog.Any("error", err))
 		return
 	}
-
-	time.Sleep(time.Second * 3)
 
 	if _, err := conn.Write([]byte("ACK: " + strings.ToUpper(msg))); err != nil {
 		slog.Error("failed to write to conn:", slog.Any("error", err))

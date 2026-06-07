@@ -38,6 +38,33 @@ func (v SimpleString) Marshal() []byte {
 	return buf.Bytes()
 }
 
+type SimpleError struct {
+	err error
+}
+
+func (v SimpleError) Marshal() []byte {
+	var buf bytes.Buffer
+
+	buf.WriteRune(MAGIC_SIMPLE_ERROR)
+	buf.WriteString("ERR ")
+	buf.WriteString(v.err.Error())
+	buf.WriteString(SENTINEL)
+
+	return buf.Bytes()
+}
+
+type Integer int
+
+func (v Integer) Marshal() []byte {
+	var buf bytes.Buffer
+
+	buf.WriteRune(MAGIC_INTEGER)
+	buf.WriteString(strconv.Itoa(int(v)))
+	buf.WriteString(SENTINEL)
+
+	return buf.Bytes()
+}
+
 type BulkString struct {
 	null bool
 	data []byte

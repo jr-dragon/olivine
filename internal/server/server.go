@@ -39,7 +39,7 @@ func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
 
 	rd := resp.NewReader(conn)
-	cmd, err := rd.Read()
+	cmd, err := resp.ReadCommand(rd)
 	if err != nil {
 		slog.Error("failed to read from conn:", slog.Any("error", err))
 		return

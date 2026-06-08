@@ -17,6 +17,7 @@ var (
 
 type Handler interface {
 	ServeRESP(context.Context, *resp.Reader) (resp.Value, error)
+	Exec(context.Context, *resp.Command) (resp.Value, error)
 }
 
 type HandlerFunc func(context.Context, *resp.Command) (resp.Value, error)
@@ -29,7 +30,7 @@ func NewHandler(cmds []cmd.Command, middlewares ...Middleware) Handler {
 		h.factory[cmd.Command()] = cmd.Exec
 	}
 
-	h.serve = h.exec
+	h.serve = h.Exec
 	for i := len(middlewares) - 1; i >= 0; i-- {
 		h.serve = middlewares[i](h.serve)
 	}
@@ -57,7 +58,7 @@ func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Va
 	return h.serve(ctx, cmd)
 }
 
-func (h *simpleHandler) exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
+func (h *simpleHandler) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	f, ok := h.factory[cmd.Command()]
 	if !ok {
 		err := fmt.Errorf("%w: unknown command: %s", ErrClient, cmd.Command())

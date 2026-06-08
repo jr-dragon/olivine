@@ -11,18 +11,25 @@ import (
 
 type Server interface {
 	ListenAndServe() error
+	RestoreFromDisk() error
 }
 
-func NewServer(handler Handler) Server {
+func NewServer(handler Handler, restorer Restorer) Server {
 	return &simpleSrv{
-		handler: handler,
+		handler:  handler,
+		restorer: restorer,
 	}
 }
 
 type simpleSrv struct {
-	handler Handler
+	handler  Handler
+	restorer Restorer
 
 	listener net.Listener
+}
+
+func (s *simpleSrv) RestoreFromDisk() error {
+	return s.restorer.LoadFromDisk()
 }
 
 func (s *simpleSrv) ListenAndServe() (err error) {

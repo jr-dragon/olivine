@@ -17,23 +17,30 @@ var (
 
 type Handler interface {
 	ServeRESP(context.Context, *resp.Reader) (resp.Value, error)
+	Exec(context.Context, *resp.Command) (resp.Value, error)
 }
 
 type HandlerFunc func(context.Context, *resp.Command) (resp.Value, error)
+type Middleware func(HandlerFunc) HandlerFunc
 
-func NewHandler(cmds []cmd.Command) Handler {
-	factory := make(map[string]HandlerFunc)
+func NewHandler(cmds []cmd.Command, middlewares ...Middleware) Handler {
+	h := simpleHandler{}
+	h.factory = make(map[string]HandlerFunc)
 	for _, cmd := range cmds {
-		factory[cmd.Command()] = cmd.Exec
+		h.factory[cmd.Command()] = cmd.Exec
 	}
 
-	return &simpleHandler{
-		factory: factory,
+	h.serve = h.Exec
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		h.serve = middlewares[i](h.serve)
 	}
+
+	return &h
 }
 
 type simpleHandler struct {
 	factory map[string]HandlerFunc
+	serve   HandlerFunc
 }
 
 func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Value, error) {
@@ -48,10 +55,10 @@ func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Va
 
 	slog.Info("Read RESP command:", slog.Any("command", cmd))
 
-	return h.exec(ctx, cmd)
+	return h.serve(ctx, cmd)
 }
 
-func (h *simpleHandler) exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
+func (h *simpleHandler) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	f, ok := h.factory[cmd.Command()]
 	if !ok {
 		err := fmt.Errorf("%w: unknown command: %s", ErrClient, cmd.Command())

@@ -10,6 +10,12 @@ var (
 	ErrProtocol = errors.New("Protocol error")
 )
 
+var (
+	dirtyCommands = map[string]struct{}{
+		"SET": {},
+	}
+)
+
 type Command struct {
 	raw  Value
 	cmd  BulkString
@@ -57,4 +63,13 @@ func (cmd *Command) Command() string {
 
 func (cmd *Command) Args() []BulkString {
 	return cmd.args
+}
+
+func (cmd *Command) Dirty() bool {
+	_, isdirty := dirtyCommands[cmd.Command()]
+	return isdirty
+}
+
+func (cmd *Command) Marshal() []byte {
+	return cmd.raw.Marshal()
 }

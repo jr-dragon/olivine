@@ -10,6 +10,7 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
+//go:generate go tool moq -rm -out storage_mock.go . Storage
 type Storage interface {
 	Set(ctx context.Context, k, v string) error
 	Get(ctx context.Context, k string) (string, error)

@@ -57,6 +57,26 @@ func ReadCommand(rd *Reader) (*Command, error) {
 	}, nil
 }
 
+func NewTestCommand(v Array) *Command {
+	strs := make([]BulkString, 0, len(v.data))
+	for _, s := range v.data {
+		strs = append(strs, s.(BulkString))
+	}
+
+	var args []BulkString
+	if len(strs) == 1 {
+		args = make([]BulkString, 0)
+	} else {
+		args = strs[1:]
+	}
+
+	return &Command{
+		raw:  v,
+		cmd:  strs[0],
+		args: args,
+	}
+}
+
 func (cmd *Command) Command() string {
 	return strings.ToUpper(string(cmd.cmd.data))
 }

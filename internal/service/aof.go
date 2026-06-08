@@ -2,15 +2,25 @@ package service
 
 import (
 	"fmt"
-	"olivine/pkg/resp"
 	"os"
 	"sync"
+
+	"olivine/pkg/resp"
 )
 
 type AOF interface {
 	Read() (*resp.Command, error)
 	Write(*resp.Command) error
 	Close() error
+}
+
+func NewAOF(path string) (AOF, error) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	return &file{f: f, rd: resp.NewReader(f)}, nil
 }
 
 type file struct {

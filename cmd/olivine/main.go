@@ -3,8 +3,14 @@ package main
 import "log/slog"
 
 func main() {
-	app := NewApp()
+	app, err := NewApp()
+	if err != nil {
+		slog.Error("failed to init app", slog.Any("error", err))
+		return
+	}
+
 	if err := app.Run(); err != nil {
-		slog.Error("failed to fun app", slog.Any("error", err))
+		slog.Error("failed to run app", slog.Any("error", err))
+		return
 	}
 }

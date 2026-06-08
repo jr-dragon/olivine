@@ -17,3 +17,7 @@ There're notes for this repository, read issues with `documentation` label.
 - [Day 7: Data Persistence](https://github.com/jr-dragon/olivine/issues/7)
 
 You can checkout to `d1/*`, `d2/*`, ... branches to review code changes for notes. The `git diff` helps a lot.
+
+## License
+
+Code is under MIT License, and tutorial in issues is under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en).

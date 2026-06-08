@@ -42,6 +42,10 @@ type SimpleError struct {
 	err error
 }
 
+func NewSimpleError(err error) SimpleError {
+	return SimpleError{err: err}
+}
+
 func (v SimpleError) Marshal() []byte {
 	var buf bytes.Buffer
 
@@ -68,6 +72,14 @@ func (v Integer) Marshal() []byte {
 type BulkString struct {
 	null bool
 	data []byte
+}
+
+func NewNullBulkString() BulkString {
+	return BulkString{null: true}
+}
+
+func NewBulkString(s string) BulkString {
+	return BulkString{data: []byte(s)}
 }
 
 func (v BulkString) Marshal() []byte {

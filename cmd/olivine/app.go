@@ -2,7 +2,7 @@ package main
 
 import (
 	"log/slog"
-	
+
 	"olivine/internal/server"
 )
 
@@ -12,7 +12,7 @@ type App struct {
 
 func NewApp() *App {
 	return &App{
-		srv: server.NewServer(),
+		srv: server.NewServer(server.NewHandler()),
 	}
 }
 

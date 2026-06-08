@@ -137,6 +137,14 @@ type Array struct {
 	data []Value
 }
 
+func NewNullArray() Array {
+	return Array{null: true}
+}
+
+func NewArray(data []Value) Array {
+	return Array{data: data}
+}
+
 func (v Array) Marshal() []byte {
 	/*
 	 * Null Array Format:

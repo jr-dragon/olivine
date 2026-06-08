@@ -3,3 +3,15 @@
 A key-value storage supports [RESP](https://redis.io/docs/develop/reference/protocol-spec), written in Go.
 
 Inspired from [Build Redis From Scratch](https://www.build-redis-from-scratch.dev)
+
+## Tutorial
+
+There're notes for this repository, read issues with `documentation` label.
+
+- [Day 0: Motivation and Overview](https://github.com/jr-dragon/olivine/issues/1)
+- [Day 1: Project initialization](https://github.com/jr-dragon/olivine/issues/2)
+- [Day 2: Application](https://github.com/jr-dragon/olivine/issues/3)
+- [Day 3, 4: RESP2 value and reader](https://github.com/jr-dragon/olivine/issues/4)
+- [Day 5: Redis Command Handler](https://github.com/jr-dragon/olivine/issues/5)
+
+You can checkout to `d1/*`, `d2/*`, ... branches to review code changes for notes. The `git diff` helps a lot.

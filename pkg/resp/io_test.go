@@ -37,7 +37,9 @@ func TestReader_readLine(t *testing.T) {
 
 			got, err := rd.readLine()
 			if experr, ok := tc.expect.(error); ok {
-				if !errors.Is(err, experr) {
+				if err == nil {
+					t.Errorf("expect '%s', got nil", experr.Error())
+				} else if !errors.Is(err, experr) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}
 			} else {
@@ -88,7 +90,9 @@ func TestReader_readInt(t *testing.T) {
 
 			got, err := rd.readInt()
 			if experr, ok := tc.expect.(error); ok {
-				if !errors.Is(err, experr) {
+				if err == nil {
+					t.Errorf("expect '%s', got nil", experr.Error())
+				} else if !errors.Is(err, experr) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}
 			} else {
@@ -129,7 +133,9 @@ func TestReader_Read(t *testing.T) {
 
 			v, err := rd.Read()
 			if experr, ok := tc.expect.(error); ok {
-				if !errors.Is(err, experr) {
+				if err == nil {
+					t.Errorf("expect '%s', got nil", experr.Error())
+				} else if !errors.Is(err, experr) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}
 			} else {

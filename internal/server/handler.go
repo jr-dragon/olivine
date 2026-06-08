@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+
+	"olivine/internal/service/cmd"
 	"olivine/pkg/resp"
 )
 
@@ -19,9 +21,14 @@ type Handler interface {
 
 type HandlerFunc func(context.Context, *resp.Command) (resp.Value, error)
 
-func NewHandler() Handler {
+func NewHandler(cmds []cmd.Command) Handler {
+	factory := make(map[string]HandlerFunc)
+	for _, cmd := range cmds {
+		factory[cmd.Command()] = cmd.Exec
+	}
+
 	return &simpleHandler{
-		factory: make(map[string]HandlerFunc),
+		factory: factory,
 	}
 }
 

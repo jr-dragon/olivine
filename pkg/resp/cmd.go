@@ -54,3 +54,7 @@ func ReadCommand(rd *Reader) (*Command, error) {
 func (cmd *Command) Command() string {
 	return strings.ToUpper(string(cmd.cmd.data))
 }
+
+func (cmd *Command) Args() []BulkString {
+	return cmd.args
+}

@@ -3,7 +3,9 @@ package main
 import (
 	"log/slog"
 
+	"olivine/internal/repo"
 	"olivine/internal/server"
+	"olivine/internal/service/cmd"
 )
 
 type App struct {
@@ -12,7 +14,7 @@ type App struct {
 
 func NewApp() *App {
 	return &App{
-		srv: server.NewServer(server.NewHandler()),
+		srv: server.NewServer(server.NewHandler(cmd.NewCommands(repo.NewStorage()))),
 	}
 }
 

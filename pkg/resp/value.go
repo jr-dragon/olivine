@@ -112,6 +112,10 @@ func (v BulkString) Marshal() []byte {
 	return buf.Bytes()
 }
 
+func (v BulkString) String() string {
+	return string(v.data)
+}
+
 type Array struct {
 	null bool
 	data []Value

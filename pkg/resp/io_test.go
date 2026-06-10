@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"slices"
 	"strconv"
 	"testing"
 )
@@ -43,7 +44,7 @@ func TestReader_readLine(t *testing.T) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}
 			} else {
-				if string(tc.expect.([]byte)) != string(got) {
+				if !slices.Equal(tc.expect.([]byte), got) {
 					t.Errorf("expect '%s', got '%s'", tc.expect, got)
 				}
 			}
@@ -139,7 +140,7 @@ func TestReader_Read(t *testing.T) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}
 			} else {
-				if string(tc.expect.([]byte)) != string(v.Marshal()) {
+				if !slices.Equal(tc.expect.([]byte), v.Marshal()) {
 					t.Errorf("expect '%s', got '%s'", tc.expect.([]byte), v.Marshal())
 				}
 			}

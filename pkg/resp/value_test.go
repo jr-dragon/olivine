@@ -2,6 +2,7 @@ package resp
 
 import (
 	"errors"
+	"slices"
 	"testing"
 )
 
@@ -25,7 +26,7 @@ func TestSimpleString_Marshal(t *testing.T) {
 			s := SimpleString(tc.data)
 
 			marshaled := s.Marshal()
-			if string(marshaled) != string(tc.expect) {
+			if !slices.Equal(tc.expect, marshaled) {
 				t.Errorf("expect '%s', got '%s'", tc.expect, marshaled)
 			}
 		})
@@ -57,7 +58,7 @@ func TestSimpleError_Marshal(t *testing.T) {
 	marshaled := err.Marshal()
 	expect := []byte("-ERR foobar\r\n")
 
-	if string(marshaled) != string(expect) {
+	if !slices.Equal(expect, marshaled) {
 		t.Errorf("expect '%s', got '%s'", expect, marshaled)
 	}
 }
@@ -80,7 +81,7 @@ func TestInteger_Marshal(t *testing.T) {
 	for _, tc := range testcase {
 		marshaled := Integer(tc.data).Marshal()
 
-		if string(marshaled) != string(tc.expect) {
+		if !slices.Equal(tc.expect, marshaled) {
 			t.Errorf("expect '%s', got '%s'", tc.expect, marshaled)
 		}
 	}
@@ -167,7 +168,7 @@ func TestBulkString_Marshal(t *testing.T) {
 				marshaled = NewBulkString(*tc.data).Marshal()
 			}
 
-			if string(marshaled) != string(tc.expect) {
+			if !slices.Equal(tc.expect, marshaled) {
 				t.Errorf("expect '%s', got '%s'", tc.expect, marshaled)
 			}
 		})
@@ -204,7 +205,7 @@ func TestArray_Marshal(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			marshaled := tc.data.Marshal()
 
-			if string(marshaled) != string(tc.expect) {
+			if !slices.Equal(tc.expect, marshaled) {
 				t.Errorf("expect '%s', got '%s'", tc.expect, marshaled)
 			}
 		})

@@ -3,6 +3,7 @@ package resp
 import (
 	"bytes"
 	"errors"
+	"slices"
 	"testing"
 )
 
@@ -40,7 +41,7 @@ func TestReadCommand(t *testing.T) {
 		{
 			name:   "valid command",
 			input:  "*2\r\n$4\r\nPING\r\n$7\r\nmessage\r\n",
-			expect: "*2\r\n$4\r\nPING\r\n$7\r\nmessage\r\n",
+			expect: []byte("*2\r\n$4\r\nPING\r\n$7\r\nmessage\r\n"),
 		},
 	}
 
@@ -55,7 +56,7 @@ func TestReadCommand(t *testing.T) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}
 			} else {
-				if tc.expect != string(cmd.Marshal()) {
+				if !slices.Equal(tc.expect.([]byte), cmd.Marshal()) {
 					t.Errorf("expect '%s', got '%s'", tc.expect, cmd.Marshal())
 				}
 			}

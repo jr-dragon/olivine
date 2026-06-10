@@ -5,6 +5,7 @@ import (
 	"errors"
 	"olivine/internal/repo"
 	"olivine/pkg/resp"
+	"slices"
 	"testing"
 )
 
@@ -42,7 +43,7 @@ func TestGet_Exec(t *testing.T) {
 				resp.NewBulkString("GET"),
 				resp.NewBulkString("foo"),
 			})),
-			expect: "$-1\r\n",
+			expect: []byte("$-1\r\n"),
 		},
 		{
 			name: "found",
@@ -53,7 +54,7 @@ func TestGet_Exec(t *testing.T) {
 				resp.NewBulkString("GET"),
 				resp.NewBulkString("foo"),
 			})),
-			expect: "$3\r\nbar\r\n",
+			expect: []byte("$3\r\nbar\r\n"),
 		},
 	}
 
@@ -69,7 +70,8 @@ func TestGet_Exec(t *testing.T) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}
 			} else {
-				if tc.expect.(string) != string(ret.Marshal()) {
+				// if tc.expect.(string) != string(ret.Marshal()) {
+				if !slices.Equal(tc.expect.([]byte), ret.Marshal()) {
 					t.Errorf("expect '%s', got '%s'", tc.expect.(string), ret.Marshal())
 				}
 			}

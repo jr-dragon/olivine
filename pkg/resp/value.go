@@ -29,6 +29,10 @@ func (v SimpleString) Marshal() []byte {
 	 * |                  '+'| "hello" | "\r\n"   |
 	 * |------------------------------------------|
 	 */
+	return v.copyMarshaler()
+}
+
+func (v SimpleString) bufferMarshal() []byte {
 	var buf bytes.Buffer
 
 	buf.WriteRune(MAGIC_SIMPLE_STRING)
@@ -36,6 +40,18 @@ func (v SimpleString) Marshal() []byte {
 	buf.WriteString(SENTINEL)
 
 	return buf.Bytes()
+}
+
+func (s SimpleString) copyMarshaler() []byte {
+	l := len(s)
+
+	marshaled := make([]byte, l+3)
+	marshaled[0] = MAGIC_SIMPLE_STRING
+	marshaled[l+1] = '\r'
+	marshaled[l+2] = '\n'
+	copy(marshaled[1:], s)
+
+	return marshaled
 }
 
 type SimpleError struct {
@@ -119,6 +135,14 @@ func (v BulkString) String() string {
 type Array struct {
 	null bool
 	data []Value
+}
+
+func NewNullArray() Array {
+	return Array{null: true}
+}
+
+func NewArray(data []Value) Array {
+	return Array{data: data}
 }
 
 func (v Array) Marshal() []byte {

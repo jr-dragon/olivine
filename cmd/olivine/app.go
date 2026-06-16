@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -49,7 +50,10 @@ func (app *App) Run() error {
 	errch := make(chan error, 1)
 	go func() {
 		slog.Info("starting olivine server")
-		errch <- app.srv.ListenAndServe()
+		if err := app.srv.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {
+			errch <- err
+		}
+		errch <- nil
 	}()
 
 	select {

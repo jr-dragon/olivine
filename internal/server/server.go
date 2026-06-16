@@ -5,8 +5,13 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"sync/atomic"
 
 	"olivine/pkg/resp"
+)
+
+var (
+	ErrServerClosed = errors.New("resp: server closed")
 )
 
 type Server interface {
@@ -27,7 +32,8 @@ type simpleSrv struct {
 	handler  Handler
 	restorer Restorer
 
-	listener net.Listener
+	listener   net.Listener
+	inShutdown atomic.Bool
 }
 
 func (s *simpleSrv) RestoreFromDisk() error {
@@ -42,6 +48,10 @@ func (s *simpleSrv) ListenAndServe() (err error) {
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
+			if s.inShutdown.Load() {
+				return ErrServerClosed
+			}
+
 			slog.Error("failed to accept connection:", slog.Any("error", err))
 			return err
 		}
@@ -72,6 +82,7 @@ func (s *simpleSrv) serve(conn net.Conn) {
 }
 
 func (s *simpleSrv) Close() error {
+	s.inShutdown.Store(true)
 	if s.listener == nil {
 		return nil
 	}

@@ -20,7 +20,7 @@ type Server interface {
 	ListenAndServe() error
 	RestoreFromDisk() error
 
-	Close() error
+	Shutdown(context.Context) error
 }
 
 func NewServer(handler Handler, restorer Restorer) Server {
@@ -108,7 +108,7 @@ func (s *simpleSrv) serve(conn net.Conn) {
 	}
 }
 
-func (s *simpleSrv) Close() error {
+func (s *simpleSrv) Shutdown(ctx context.Context) error {
 	s.inShutdown.Store(true)
 	if s.listener == nil {
 		return nil
@@ -122,9 +122,19 @@ func (s *simpleSrv) Close() error {
 		errs = append(errs, err)
 	}
 
-	s.wg.Wait()
+	done := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(done)
+	}()
 
-	return errors.Join(errs...)
+	select {
+	case <-done:
+		return errors.Join(errs...)
+	case <-ctx.Done():
+		errs = append(errs, ctx.Err())
+		return errors.Join(errs...)
+	}
 }
 
 func (s *simpleSrv) closeConns() error {

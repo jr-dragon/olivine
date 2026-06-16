@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"olivine/internal/repo"
 	"olivine/internal/server"
@@ -60,7 +61,11 @@ func (app *App) Run() error {
 	select {
 	case <-ctx.Done():
 		slog.Info("closing olivine server")
-		if err := app.srv.Close(); err != nil {
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+
+		if err := app.srv.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
 

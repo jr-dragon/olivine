@@ -40,7 +40,7 @@ func NewApp() (*App, error) {
 }
 
 func (app *App) Run() error {
-	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	slog.Info("restoring data from disk")

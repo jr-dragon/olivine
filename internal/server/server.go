@@ -84,14 +84,24 @@ func (s *simpleSrv) serve(conn net.Conn) {
 
 	for {
 		ret, err := s.handler.ServeRESP(context.Background(), rd)
-		if err != nil && errors.Is(err, ErrServer) {
-			return
+		if err != nil {
+			if s.inShutdown.Load() {
+				return
+			}
+			if errors.Is(err, ErrServer) {
+				slog.Error("failed to serve resp", slog.Any("error", err))
+				return
+			}
 		}
 		if ret == nil {
 			ret = resp.NewNullBulkString()
 		}
 
 		if _, err := conn.Write(ret.Marshal()); err != nil {
+			if s.inShutdown.Load() {
+				return
+			}
+
 			slog.Error("failed to write to conn:", slog.Any("error", err))
 			return
 		}

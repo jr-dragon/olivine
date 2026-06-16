@@ -59,14 +59,12 @@ func (s *simpleSrv) ListenAndServe() (err error) {
 			return err
 		}
 
-		s.wg.Add(1)
-		go s.serve(conn)
+		s.wg.Go(func() { s.serve(conn) })
 	}
 }
 
 func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
-	defer s.wg.Done()
 
 	rd := resp.NewReader(conn)
 

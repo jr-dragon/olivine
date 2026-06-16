@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"olivine/internal/repo"
 	"olivine/internal/server"
@@ -34,15 +38,29 @@ func NewApp() (*App, error) {
 }
 
 func (app *App) Run() error {
-	slog.Info("restore data from disk")
+	ctx, stop := signal.NotifyContext(context.TODO(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	slog.Info("restoring data from disk")
 	if err := app.srv.RestoreFromDisk(); err != nil {
 		return err
 	}
 
-	slog.Info("starting olivine server...")
-	if err := app.srv.ListenAndServe(); err != nil {
+	errch := make(chan error, 1)
+	go func() {
+		slog.Info("starting olivine server")
+		errch <- app.srv.ListenAndServe()
+	}()
+
+	select {
+	case <-ctx.Done():
+		slog.Info("closing olivine server")
+		if err := app.srv.Close(); err != nil {
+			return err
+		}
+
+		return <-errch
+	case err := <-errch:
 		return err
 	}
-
-	return nil
 }

@@ -12,6 +12,8 @@ import (
 type Server interface {
 	ListenAndServe() error
 	RestoreFromDisk() error
+
+	Close() error
 }
 
 func NewServer(handler Handler, restorer Restorer) Server {
@@ -67,5 +69,12 @@ func (s *simpleSrv) serve(conn net.Conn) {
 			return
 		}
 	}
+}
 
+func (s *simpleSrv) Close() error {
+	if s.listener == nil {
+		return nil
+	}
+
+	return s.listener.Close()
 }

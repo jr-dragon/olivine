@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -26,6 +27,8 @@ func NewServer(handler Handler, restorer Restorer) Server {
 	return &simpleSrv{
 		handler:  handler,
 		restorer: restorer,
+
+		conns: make(map[net.Conn]struct{}),
 	}
 }
 
@@ -36,7 +39,9 @@ type simpleSrv struct {
 	listener   net.Listener
 	inShutdown atomic.Bool
 
-	wg sync.WaitGroup
+	wg    sync.WaitGroup
+	mu    sync.Mutex
+	conns map[net.Conn]struct{}
 }
 
 func (s *simpleSrv) RestoreFromDisk() error {
@@ -59,12 +64,21 @@ func (s *simpleSrv) ListenAndServe() (err error) {
 			return err
 		}
 
+		s.mu.Lock()
+		s.conns[conn] = struct{}{}
+		s.mu.Unlock()
 		s.wg.Go(func() { s.serve(conn) })
 	}
 }
 
 func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
+	defer func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		delete(s.conns, conn)
+	}()
 
 	rd := resp.NewReader(conn)
 
@@ -89,11 +103,29 @@ func (s *simpleSrv) Close() error {
 	if s.listener == nil {
 		return nil
 	}
+
+	var errs []error
 	if err := s.listener.Close(); err != nil {
-		return err
+		errs = append(errs, err)
+	}
+	if err := s.closeConns(); err != nil {
+		errs = append(errs, err)
 	}
 
 	s.wg.Wait()
 
-	return nil
+	return errors.Join(errs...)
+}
+
+func (s *simpleSrv) closeConns() error {
+	s.mu.Lock()
+	conns := maps.Clone(s.conns)
+	s.mu.Unlock()
+
+	var errs []error
+	for conn := range conns {
+		errs = append(errs, conn.Close())
+	}
+
+	return errors.Join(errs...)
 }

@@ -21,6 +21,7 @@ Chapter 1: Hello World
 Chapter 2: (WIP)
 
 - [Day 8: Testing](https://github.com/jr-dragon/olivine/issues/8)
+- [Day 9, 10: Graceful Shutdown](https://github.com/jr-dragon/olivine/issues/10)
 
 You can checkout to `d1/*`, `d2/*`, ... branches to review code changes for notes. The `git diff` helps a lot.
 

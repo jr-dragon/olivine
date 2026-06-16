@@ -52,6 +52,7 @@ func (app *App) Run() error {
 		slog.Info("starting olivine server")
 		if err := app.srv.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {
 			errch <- err
+			return
 		}
 		errch <- nil
 	}()

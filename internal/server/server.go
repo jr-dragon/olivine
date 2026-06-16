@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	"olivine/pkg/resp"
@@ -34,6 +35,8 @@ type simpleSrv struct {
 
 	listener   net.Listener
 	inShutdown atomic.Bool
+
+	wg sync.WaitGroup
 }
 
 func (s *simpleSrv) RestoreFromDisk() error {
@@ -56,12 +59,14 @@ func (s *simpleSrv) ListenAndServe() (err error) {
 			return err
 		}
 
+		s.wg.Add(1)
 		go s.serve(conn)
 	}
 }
 
 func (s *simpleSrv) serve(conn net.Conn) {
 	defer conn.Close()
+	defer s.wg.Done()
 
 	rd := resp.NewReader(conn)
 
@@ -86,6 +91,11 @@ func (s *simpleSrv) Close() error {
 	if s.listener == nil {
 		return nil
 	}
+	if err := s.listener.Close(); err != nil {
+		return err
+	}
 
-	return s.listener.Close()
+	s.wg.Wait()
+
+	return nil
 }

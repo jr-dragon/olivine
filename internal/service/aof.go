@@ -12,6 +12,7 @@ import (
 type AOF interface {
 	Read() (*resp.Command, error)
 	Write(*resp.Command) error
+	Sync() error
 	Close() error
 }
 
@@ -58,6 +59,10 @@ func (aof *file) Write(v *resp.Command) error {
 	}
 
 	return nil
+}
+
+func (aof *file) Sync() error {
+	return aof.f.Sync()
 }
 
 func (aof *file) Close() error {

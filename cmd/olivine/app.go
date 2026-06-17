@@ -22,14 +22,18 @@ const (
 
 type App struct {
 	cfg *data.Config
+
+	aof service.AOF
 	srv server.Server
 }
 
 func NewApp(cfg *data.Config) (*App, error) {
 	var handler server.Handler
 	var restorer server.Restorer
+	var aof service.AOF
 	if cfg.AOFEnabled {
-		aof, err := service.NewAOF(cfg, AOFPath)
+		var err error
+		aof, err = service.NewAOF(cfg, AOFPath)
 		if err != nil {
 			return nil, err
 		}
@@ -42,6 +46,8 @@ func NewApp(cfg *data.Config) (*App, error) {
 
 	return &App{
 		cfg: cfg,
+
+		aof: aof,
 		srv: server.NewServer(handler, restorer),
 	}, nil
 }
@@ -56,6 +62,16 @@ func (app *App) Run() error {
 	}
 
 	errch := make(chan error, 1)
+	if app.cfg.AOFEnabled && app.cfg.AOFFsync == data.AOFFsyncEverySec {
+		go func() {
+			for {
+				time.Sleep(time.Second)
+				if err := app.aof.Sync(); err != nil {
+					errch <- err
+				}
+			}
+		}()
+	}
 	go func() {
 		slog.Info("starting olivine server")
 		if err := app.srv.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {

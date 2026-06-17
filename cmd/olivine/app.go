@@ -29,7 +29,7 @@ func NewApp(cfg *data.Config) (*App, error) {
 	var handler server.Handler
 	var restorer server.Restorer
 	if cfg.AOFEnabled {
-		aof, err := service.NewAOF(AOFPath)
+		aof, err := service.NewAOF(cfg, AOFPath)
 		if err != nil {
 			return nil, err
 		}

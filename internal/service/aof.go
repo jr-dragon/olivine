@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"olivine/internal/data"
 	"olivine/pkg/resp"
 )
 
@@ -14,16 +15,18 @@ type AOF interface {
 	Close() error
 }
 
-func NewAOF(path string) (AOF, error) {
+func NewAOF(cfg *data.Config, path string) (AOF, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return nil, err
 	}
 
-	return &file{f: f, rd: resp.NewReader(f)}, nil
+	return &file{cfg: cfg, f: f, rd: resp.NewReader(f)}, nil
 }
 
 type file struct {
+	cfg *data.Config
+
 	f  *os.File
 	rd *resp.Reader
 	mu sync.Mutex
@@ -48,6 +51,10 @@ func (aof *file) Write(v *resp.Command) error {
 	}
 	if n != len(marshaled) {
 		return fmt.Errorf("wrote length mismatch: got %d want %d", n, len(marshaled))
+	}
+
+	if aof.cfg.AOFFsync == data.AOFFsyncAlways {
+		return aof.f.Sync()
 	}
 
 	return nil

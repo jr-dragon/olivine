@@ -29,6 +29,8 @@ func NewConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
+
 	cfg := Config{}
 
 	rd := bufio.NewReader(f)

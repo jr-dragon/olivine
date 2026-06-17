@@ -39,38 +39,50 @@ func NewConfig(path string) (*Config, error) {
 		ln++
 		line, err := rd.ReadString('\n')
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if errors.Is(err, io.EOF) && len(line) == 0 {
 				return &cfg, nil
 			}
+			if !errors.Is(err, io.EOF) {
+				return nil, err
+			}
+		}
 
+		if err := parse(&cfg, ln, line); err != nil {
 			return nil, err
 		}
 
-		line = strings.Trim(line, " \n")
-		if len(line) == 0 || line[0] == '#' {
-			continue
-		}
-
-		parsed := strings.SplitN(line, " ", 2)
-		if len(parsed) != 2 {
-			return nil, fmt.Errorf("%w: (line: %d): %+v", ErrCommand, ln, parsed)
-		}
-		cmd, arg := parsed[0], parsed[1]
-
-		switch cmd {
-		case "appendonly":
-			if arg == "yes" {
-				cfg.AOFEnabled = true
-			}
-		case "appendfsync":
-			switch arg {
-			case "no":
-				cfg.AOFFsync = AOFFsyncNo
-			case "always":
-				cfg.AOFFsync = AOFFsyncAlways
-			case "everysec":
-				cfg.AOFFsync = AOFFsyncEverySec
-			}
+		if errors.Is(err, io.EOF) {
+			return &cfg, nil
 		}
 	}
+}
+
+func parse(cfg *Config, ln int, line string) error {
+	parsed := strings.Fields(line)
+	if len(parsed) == 0 || strings.HasPrefix(parsed[0], "#") {
+		return nil
+	}
+
+	if len(parsed) != 2 {
+		return fmt.Errorf("%w: (line: %d): %+v", ErrCommand, ln, parsed)
+	}
+	cmd, arg := parsed[0], parsed[1]
+
+	switch cmd {
+	case "appendonly":
+		if arg == "yes" {
+			cfg.AOFEnabled = true
+		}
+	case "appendfsync":
+		switch arg {
+		case "no":
+			cfg.AOFFsync = AOFFsyncNo
+		case "always":
+			cfg.AOFFsync = AOFFsyncAlways
+		case "everysec":
+			cfg.AOFFsync = AOFFsyncEverySec
+		}
+	}
+
+	return nil
 }

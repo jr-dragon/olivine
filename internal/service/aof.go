@@ -62,6 +62,9 @@ func (aof *file) Write(v *resp.Command) error {
 }
 
 func (aof *file) Sync() error {
+	aof.mu.Lock()
+	defer aof.mu.Unlock()
+
 	return aof.f.Sync()
 }
 

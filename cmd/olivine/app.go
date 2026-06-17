@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"olivine/internal/data"
 	"olivine/internal/repo"
 	"olivine/internal/server"
 	"olivine/internal/service"
@@ -20,22 +21,28 @@ const (
 )
 
 type App struct {
+	cfg *data.Config
 	srv server.Server
 }
 
-func NewApp() (*App, error) {
-	aof, err := service.NewAOF(AOFPath)
-	if err != nil {
-		return nil, err
+func NewApp(cfg *data.Config) (*App, error) {
+	var handler server.Handler
+	var restorer server.Restorer
+	if cfg.AOFEnabled {
+		aof, err := service.NewAOF(AOFPath)
+		if err != nil {
+			return nil, err
+		}
+
+		handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()), server.NewAOFMiddleware(aof))
+		restorer = server.NewRestorer(aof, handler)
+	} else {
+		handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()))
 	}
 
-	handler := server.NewHandler(cmd.NewCommands(repo.NewStorage()), server.NewAOFMiddleware(aof))
-
 	return &App{
-		srv: server.NewServer(
-			handler,
-			server.NewRestorer(aof, handler),
-		),
+		cfg: cfg,
+		srv: server.NewServer(handler, restorer),
 	}, nil
 }
 

@@ -20,7 +20,7 @@ func TestNewConfigFromBytes(t *testing.T) {
 		},
 		{
 			name: "without tailing newline",
-			data: []byte("appendonly yes\nappendfsync no\n"),
+			data: []byte("appendonly yes\nappendfsync no"),
 			want: &Config{AOFEnabled: true, AOFFsync: AOFFsyncNo},
 		},
 		{

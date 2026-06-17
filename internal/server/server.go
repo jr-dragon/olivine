@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"maps"
 	"net"
@@ -45,6 +46,10 @@ type simpleSrv struct {
 }
 
 func (s *simpleSrv) RestoreFromDisk() error {
+	if s.restorer == nil {
+		return nil
+	}
+
 	return s.restorer.LoadFromDisk()
 }
 
@@ -85,7 +90,7 @@ func (s *simpleSrv) serve(conn net.Conn) {
 	for {
 		ret, err := s.handler.ServeRESP(context.Background(), rd)
 		if err != nil {
-			if s.inShutdown.Load() {
+			if s.inShutdown.Load() || errors.Is(err, io.EOF) {
 				return
 			}
 			if errors.Is(err, ErrServer) {

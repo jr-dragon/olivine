@@ -22,6 +22,7 @@ Chapter 2: (WIP)
 
 - [Day 8: Testing](https://github.com/jr-dragon/olivine/issues/8)
 - [Day 9, 10: Graceful Shutdown](https://github.com/jr-dragon/olivine/issues/10)
+- [Day 11: AOF Fsync and Config](https://github.com/jr-dragon/olivine/issues/11)
 
 You can checkout to `d1/*`, `d2/*`, ... branches to review code changes for notes. The `git diff` helps a lot.
 

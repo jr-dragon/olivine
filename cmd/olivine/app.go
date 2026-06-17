@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"olivine/internal/data"
 	"olivine/internal/repo"
 	"olivine/internal/server"
 	"olivine/internal/service"
@@ -20,22 +21,34 @@ const (
 )
 
 type App struct {
+	cfg *data.Config
+
+	aof service.AOF
 	srv server.Server
 }
 
-func NewApp() (*App, error) {
-	aof, err := service.NewAOF(AOFPath)
-	if err != nil {
-		return nil, err
+func NewApp(cfg *data.Config) (*App, error) {
+	var handler server.Handler
+	var restorer server.Restorer
+	var aof service.AOF
+	if cfg.AOFEnabled {
+		var err error
+		aof, err = service.NewAOF(cfg, AOFPath)
+		if err != nil {
+			return nil, err
+		}
+
+		handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()), server.NewAOFMiddleware(aof))
+		restorer = server.NewRestorer(aof, handler)
+	} else {
+		handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()))
 	}
 
-	handler := server.NewHandler(cmd.NewCommands(repo.NewStorage()), server.NewAOFMiddleware(aof))
-
 	return &App{
-		srv: server.NewServer(
-			handler,
-			server.NewRestorer(aof, handler),
-		),
+		cfg: cfg,
+
+		aof: aof,
+		srv: server.NewServer(handler, restorer),
 	}, nil
 }
 
@@ -49,6 +62,23 @@ func (app *App) Run() error {
 	}
 
 	errch := make(chan error, 1)
+	if app.cfg.AOFEnabled && app.cfg.AOFFsync == data.AOFFsyncEverySec {
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := app.aof.Sync(); err != nil {
+						errch <- err
+						return
+					}
+				}
+			}
+		}()
+	}
 	go func() {
 		slog.Info("starting olivine server")
 		if err := app.srv.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {

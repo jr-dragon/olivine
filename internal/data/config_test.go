@@ -41,7 +41,7 @@ func TestNewConfigFromBytes(t *testing.T) {
 
 			if experr, ok := tt.want.(error); ok {
 				if err == nil {
-					t.Errorf("expect '%s', got nil", err.Error())
+					t.Errorf("expect '%s', got nil", experr.Error())
 				} else if !errors.Is(err, experr) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}

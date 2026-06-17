@@ -1,7 +1,7 @@
 package data
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -31,40 +31,42 @@ func NewConfig(path string) (*Config, error) {
 	}
 	defer f.Close()
 
-	cfg := Config{}
+	content, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
 
-	rd := bufio.NewReader(f)
+	return NewConfigFromBytes(content)
+}
+
+func NewConfigFromBytes(content []byte) (*Config, error) {
+	cfg := Config{}
+	rd := bytes.NewBuffer(append(content, '\n'))
 	ln := 0
 	for {
 		ln++
 		line, err := rd.ReadString('\n')
 		if err != nil {
-			if errors.Is(err, io.EOF) && len(line) == 0 {
+			if errors.Is(err, io.EOF) {
 				return &cfg, nil
 			}
-			if !errors.Is(err, io.EOF) {
-				return nil, err
-			}
+			return &cfg, fmt.Errorf("%w: (line: %d): %w", ErrCommand, ln, err)
 		}
 
-		if err := parse(&cfg, ln, line); err != nil {
-			return nil, err
-		}
-
-		if errors.Is(err, io.EOF) {
-			return &cfg, nil
+		if err := parse(&cfg, line); err != nil {
+			return &cfg, fmt.Errorf("%w: (line: %d): %w", ErrCommand, ln, err)
 		}
 	}
 }
 
-func parse(cfg *Config, ln int, line string) error {
+func parse(cfg *Config, line string) error {
 	parsed := strings.Fields(line)
 	if len(parsed) == 0 || strings.HasPrefix(parsed[0], "#") {
 		return nil
 	}
 
-	if len(parsed) != 2 {
-		return fmt.Errorf("%w: (line: %d): %+v", ErrCommand, ln, parsed)
+	if len(parsed) == 1 {
+		return errors.New("missing config command argument")
 	}
 	cmd, arg := parsed[0], parsed[1]
 

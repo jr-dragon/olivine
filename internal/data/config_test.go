@@ -1,69 +1,55 @@
 package data
 
-import "testing"
+import (
+	"errors"
+	"testing"
 
-func TestParseAppendOnly(t *testing.T) {
-	cfg := Config{}
+	"github.com/google/go-cmp/cmp"
+)
 
-	if err := parse(&cfg, 1, "appendonly yes"); err != nil {
-		t.Fatalf("parse() error = %v", err)
-	}
-
-	if !cfg.AOFEnabled {
-		t.Fatal("cfg.AOFEnabled = false, want true")
-	}
-}
-
-func TestParseAppendFsync(t *testing.T) {
-	tests := []struct {
+func TestNewConfigFromBytes(t *testing.T) {
+	testcases := []struct {
 		name string
-		line string
-		want int
+		data []byte
+		want any
 	}{
-		{name: "no", line: "appendfsync no", want: AOFFsyncNo},
-		{name: "always", line: "appendfsync always", want: AOFFsyncAlways},
-		{name: "everysec", line: "appendfsync everysec", want: AOFFsyncEverySec},
+		{
+			name: "normal case",
+			data: []byte("appendonly yes\nappendfsync no\n"),
+			want: &Config{AOFEnabled: true, AOFFsync: AOFFsyncNo},
+		},
+		{
+			name: "without tailing newline",
+			data: []byte("appendonly yes\nappendfsync no\n"),
+			want: &Config{AOFEnabled: true, AOFFsync: AOFFsyncNo},
+		},
+		{
+			name: "unexpect div",
+			data: []byte("appendonly\tyes\nappendfsync\tno\n"),
+			want: &Config{AOFEnabled: true, AOFFsync: AOFFsyncNo},
+		},
+		{
+			name: "invalid command: missing command argument",
+			data: []byte("appendonly"),
+			want: ErrCommand,
+		},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := Config{}
-			if err := parse(&cfg, 1, tt.line); err != nil {
-				t.Fatalf("parse() error = %v", err)
-			}
-			if cfg.AOFFsync != tt.want {
-				t.Fatalf("cfg.AOFFsync = %d, want %d", cfg.AOFFsync, tt.want)
+			got, err := NewConfigFromBytes(tt.data)
+
+			if experr, ok := tt.want.(error); ok {
+				if err == nil {
+					t.Errorf("expect '%s', got nil", err.Error())
+				} else if !errors.Is(err, experr) {
+					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
+				}
+			} else {
+				if diff := cmp.Diff(got, tt.want); diff != "" {
+					t.Error(diff)
+				}
 			}
 		})
-	}
-}
-
-func TestParseFlexibleWhitespace(t *testing.T) {
-	cfg := Config{}
-
-	if err := parse(&cfg, 1, "\tappendfsync   everysec\r\n"); err != nil {
-		t.Fatalf("parse() error = %v", err)
-	}
-
-	if cfg.AOFFsync != AOFFsyncEverySec {
-		t.Fatalf("cfg.AOFFsync = %d, want %d", cfg.AOFFsync, AOFFsyncEverySec)
-	}
-}
-
-func TestParseSkipsEmptyLineAndComment(t *testing.T) {
-	cfg := Config{}
-
-	if err := parse(&cfg, 1, " \t\r\n"); err != nil {
-		t.Fatalf("parse() empty line error = %v", err)
-	}
-	if err := parse(&cfg, 2, "# appendonly yes"); err != nil {
-		t.Fatalf("parse() comment error = %v", err)
-	}
-
-	if cfg.AOFEnabled {
-		t.Fatal("cfg.AOFEnabled = true, want false")
-	}
-	if cfg.AOFFsync != 0 {
-		t.Fatalf("cfg.AOFFsync = %d, want 0", cfg.AOFFsync)
 	}
 }

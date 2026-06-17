@@ -64,10 +64,17 @@ func (app *App) Run() error {
 	errch := make(chan error, 1)
 	if app.cfg.AOFEnabled && app.cfg.AOFFsync == data.AOFFsyncEverySec {
 		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
 			for {
-				time.Sleep(time.Second)
-				if err := app.aof.Sync(); err != nil {
-					errch <- err
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := app.aof.Sync(); err != nil {
+						errch <- err
+						return
+					}
 				}
 			}
 		}()

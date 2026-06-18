@@ -10,5 +10,9 @@ clean:
 	@echo "Cleaning..."
 	@rm -rf $(BIN_DIR)
 
+gen:
+	@echo "Generating..."
+	go generate ./...
+
 test:
 	go test ./...

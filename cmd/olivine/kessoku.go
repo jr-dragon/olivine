@@ -14,6 +14,10 @@ import (
 
 var _ = kessoku.Inject[*App](
 	"NewApp",
+	// repositories
+	kessoku.Bind[repo.Storage](kessoku.Provide(repo.NewStorage)),
+
+	// services
 	kessoku.Bind[service.AOF](kessoku.Provide(func(cfg *data.Config) (service.AOF, error) {
 		if !cfg.AOFEnabled {
 			return nil, nil
@@ -21,13 +25,16 @@ var _ = kessoku.Inject[*App](
 
 		return service.NewAOF(cfg, AOFPath)
 	})),
-	kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF) server.Handler {
+	kessoku.Provide(cmd.NewCommands),
+
+	// servers
+	kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, cmds []cmd.Command) server.Handler {
 		middlewares := []server.Middleware{}
 		if cfg.AOFEnabled {
 			middlewares = append(middlewares, server.NewAOFMiddleware(aof))
 		}
 
-		return server.NewHandler(cmd.NewCommands(repo.NewStorage()), middlewares...)
+		return server.NewHandler(cmds, middlewares...)
 	})),
 	kessoku.Bind[server.Restorer](kessoku.Provide(func(cfg *data.Config, aof service.AOF, handler server.Handler) server.Restorer {
 		if !cfg.AOFEnabled {
@@ -37,6 +44,8 @@ var _ = kessoku.Inject[*App](
 		return server.NewRestorer(aof, handler)
 	})),
 	kessoku.Bind[server.Server](kessoku.Provide(server.NewServer)),
+
+	// application
 	kessoku.Provide(func(cfg *data.Config, aof service.AOF, srv server.Server) *App {
 		return &App{
 			cfg: cfg,

@@ -12,6 +12,7 @@ import (
 )
 
 func NewApp(config *data.Config) (*App, error) {
+	storage := kessoku.Bind[repo.Storage](kessoku.Provide(repo.NewStorage)).Fn()()
 	var err error
 	aof, err := kessoku.Bind[service.AOF](kessoku.Provide(func(cfg *data.Config) (service.AOF, error) {
 		if !cfg.AOFEnabled {
@@ -23,13 +24,14 @@ func NewApp(config *data.Config) (*App, error) {
 		var zero *App
 		return zero, err
 	}
-	handler := kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF) server.Handler {
+	val := kessoku.Provide(cmd.NewCommands).Fn()(storage)
+	handler := kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, cmds []cmd.Command) server.Handler {
 		middlewares := []server.Middleware{}
 		if cfg.AOFEnabled {
 			middlewares = append(middlewares, server.NewAOFMiddleware(aof))
 		}
-		return server.NewHandler(cmd.NewCommands(repo.NewStorage()), middlewares...)
-	})).Fn()(config, aof)
+		return server.NewHandler(cmds, middlewares...)
+	})).Fn()(config, aof, val)
 	restorer := kessoku.Bind[server.Restorer](kessoku.Provide(func(cfg *data.Config, aof service.AOF, handler server.Handler) server.Restorer {
 		if !cfg.AOFEnabled {
 			return nil

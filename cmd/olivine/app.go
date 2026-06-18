@@ -10,10 +10,8 @@ import (
 	"time"
 
 	"olivine/internal/data"
-	"olivine/internal/repo"
 	"olivine/internal/server"
 	"olivine/internal/service"
-	"olivine/internal/service/cmd"
 )
 
 const (
@@ -25,31 +23,6 @@ type App struct {
 
 	aof service.AOF
 	srv server.Server
-}
-
-func NewApp(cfg *data.Config) (*App, error) {
-	var handler server.Handler
-	var restorer server.Restorer
-	var aof service.AOF
-	if cfg.AOFEnabled {
-		var err error
-		aof, err = service.NewAOF(cfg, AOFPath)
-		if err != nil {
-			return nil, err
-		}
-
-		handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()), server.NewAOFMiddleware(aof))
-		restorer = server.NewRestorer(aof, handler)
-	} else {
-		handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()))
-	}
-
-	return &App{
-		cfg: cfg,
-
-		aof: aof,
-		srv: server.NewServer(handler, restorer),
-	}, nil
 }
 
 func (app *App) Run() error {

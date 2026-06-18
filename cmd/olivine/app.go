@@ -12,6 +12,8 @@ import (
 	"olivine/internal/data"
 	"olivine/internal/server"
 	"olivine/internal/service"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -34,32 +36,35 @@ func (app *App) Run() error {
 		return err
 	}
 
-	errch := make(chan error, 1)
+	g, ctx := errgroup.WithContext(ctx)
 	if app.cfg.AOFEnabled && app.cfg.AOFFsync == data.AOFFsyncEverySec {
-		go func() {
+		g.Go(func() error {
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
+
 			for {
 				select {
 				case <-ctx.Done():
-					return
+					return nil
 				case <-ticker.C:
 					if err := app.aof.Sync(); err != nil {
-						errch <- err
-						return
+						return err
 					}
 				}
 			}
-		}()
+		})
 	}
-	go func() {
+
+	g.Go(func() error {
 		slog.Info("starting olivine server")
 		if err := app.srv.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {
-			errch <- err
-			return
+			return err
 		}
-		errch <- nil
-	}()
+		return nil
+	})
+
+	errch := make(chan error, 1)
+	go func() { errch <- g.Wait() }()
 
 	select {
 	case <-ctx.Done():

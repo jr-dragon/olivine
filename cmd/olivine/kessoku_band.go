@@ -13,26 +13,32 @@ import (
 
 func NewApp(config *data.Config) (*App, error) {
 	var err error
-	app, err := kessoku.Provide(func(cfg *data.Config) (*App, error) {
-		var handler server.Handler
-		var restorer server.Restorer
-		var aof service.AOF
-		if cfg.AOFEnabled {
-			var err error
-			aof, err = service.NewAOF(cfg, AOFPath)
-			if err != nil {
-				return nil, err
-			}
-			handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()), server.NewAOFMiddleware(aof))
-			restorer = server.NewRestorer(aof, handler)
-		} else {
-			handler = server.NewHandler(cmd.NewCommands(repo.NewStorage()))
+	aof, err := kessoku.Bind[service.AOF](kessoku.Provide(func(cfg *data.Config) (service.AOF, error) {
+		if !cfg.AOFEnabled {
+			return nil, nil
 		}
-		return &App{cfg: cfg, aof: aof, srv: server.NewServer(handler, restorer)}, nil
-	}).Fn()(config)
+		return service.NewAOF(cfg, AOFPath)
+	})).Fn()(config)
 	if err != nil {
 		var zero *App
 		return zero, err
 	}
+	handler := kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF) server.Handler {
+		middlewares := []server.Middleware{}
+		if cfg.AOFEnabled {
+			middlewares = append(middlewares, server.NewAOFMiddleware(aof))
+		}
+		return server.NewHandler(cmd.NewCommands(repo.NewStorage()), middlewares...)
+	})).Fn()(config, aof)
+	restorer := kessoku.Bind[server.Restorer](kessoku.Provide(func(cfg *data.Config, aof service.AOF, handler server.Handler) server.Restorer {
+		if !cfg.AOFEnabled {
+			return nil
+		}
+		return server.NewRestorer(aof, handler)
+	})).Fn()(config, aof, handler)
+	server0 := kessoku.Bind[server.Server](kessoku.Provide(server.NewServer)).Fn()(handler, restorer)
+	app := kessoku.Provide(func(cfg *data.Config, aof service.AOF, srv server.Server) *App {
+		return &App{cfg: cfg, aof: aof, srv: srv}
+	}).Fn()(config, aof, server0)
 	return app, nil
 }

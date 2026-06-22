@@ -64,7 +64,66 @@ func TestSet_Exec(t *testing.T) {
 				resp.NewBulkString("foo"),
 				resp.NewBulkString("bar"),
 				resp.NewBulkString("EX"),
+				resp.NewBulkString("10"),
+			})),
+			expect: []byte("+OK\r\n"),
+		},
+		{
+			name: "set with px",
+			storage: &repo.StorageMock{
+				SetFunc: func(ctx context.Context, obj object.Object) error {
+					if obj.ExpiresAt() == nil || !obj.ExpiresAt().Equal(time.Now().Add(time.Millisecond*11)) {
+						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", time.Now().Add(time.Millisecond*11), obj.ExpiresAt())
+					}
+					return nil
+				},
+			},
+			cmd: resp.NewTestCommand(resp.NewArray([]resp.Value{
+				resp.NewBulkString("SET"),
+				resp.NewBulkString("foo"),
+				resp.NewBulkString("bar"),
+				resp.NewBulkString("PX"),
 				resp.NewBulkString("11"),
+			})),
+			expect: []byte("+OK\r\n"),
+		},
+		{
+			name: "set with exat",
+			storage: &repo.StorageMock{
+				SetFunc: func(ctx context.Context, obj object.Object) error {
+					expected := time.Unix(1_700_000_000, 0)
+					if obj.ExpiresAt() == nil || !obj.ExpiresAt().Equal(expected) {
+						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", expected, obj.ExpiresAt())
+					}
+					return nil
+				},
+			},
+			cmd: resp.NewTestCommand(resp.NewArray([]resp.Value{
+				resp.NewBulkString("SET"),
+				resp.NewBulkString("foo"),
+				resp.NewBulkString("bar"),
+				resp.NewBulkString("EXAT"),
+				resp.NewBulkString("1700000000"),
+			})),
+			expect: []byte("+OK\r\n"),
+		},
+		{
+			name: "set with pxat",
+			storage: &repo.StorageMock{
+				SetFunc: func(ctx context.Context, obj object.Object) error {
+					expected := time.UnixMilli(1_700_000_000_123)
+					if obj.ExpiresAt() == nil || !obj.ExpiresAt().Equal(expected) {
+						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", expected, obj.ExpiresAt())
+					}
+					return nil
+				},
+			},
+			cmd: resp.NewTestCommand(resp.NewArray([]resp.Value{
+				resp.NewBulkString("SET"),
+				resp.NewBulkString("foo"),
+				resp.NewBulkString("bar"),
+				resp.NewBulkString("PXAT"),
+				resp.NewBulkString("1700000000123"),
 			})),
 			expect: []byte("+OK\r\n"),
 		},

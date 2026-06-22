@@ -17,6 +17,7 @@ var (
 type Storage interface {
 	Set(ctx context.Context, obj object.Object) error
 	Get(ctx context.Context, k string) (object.Object, error)
+	Prune(context.Context) error
 }
 
 func NewStorage() Storage {
@@ -53,4 +54,41 @@ func (s *mapStorage) Get(_ context.Context, k string) (v object.Object, err erro
 	}
 
 	return
+}
+
+func (s *mapStorage) Prune(ctx context.Context) error {
+	const sampleSize = 10
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for len(s.storage) > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			sampled := 0
+			expired := 0
+			now := time.Now()
+
+			for k, v := range s.storage {
+				if sampled == sampleSize {
+					break
+				}
+
+				sampled++
+				if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
+					delete(s.storage, k)
+					expired++
+				}
+			}
+
+			if expired*4 < sampled {
+				return nil
+			}
+		}
+
+	}
+
+	return nil
 }

@@ -22,6 +22,9 @@ var _ Storage = &StorageMock{}
 //			GetFunc: func(ctx context.Context, k string) (object.Object, error) {
 //				panic("mock out the Get method")
 //			},
+//			PruneFunc: func(contextMoqParam context.Context) error {
+//				panic("mock out the Prune method")
+//			},
 //			SetFunc: func(ctx context.Context, obj object.Object) error {
 //				panic("mock out the Set method")
 //			},
@@ -35,6 +38,9 @@ type StorageMock struct {
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, k string) (object.Object, error)
 
+	// PruneFunc mocks the Prune method.
+	PruneFunc func(contextMoqParam context.Context) error
+
 	// SetFunc mocks the Set method.
 	SetFunc func(ctx context.Context, obj object.Object) error
 
@@ -47,6 +53,11 @@ type StorageMock struct {
 			// K is the k argument value.
 			K string
 		}
+		// Prune holds details about calls to the Prune method.
+		Prune []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
 		// Set holds details about calls to the Set method.
 		Set []struct {
 			// Ctx is the ctx argument value.
@@ -55,8 +66,9 @@ type StorageMock struct {
 			Obj object.Object
 		}
 	}
-	lockGet sync.RWMutex
-	lockSet sync.RWMutex
+	lockGet   sync.RWMutex
+	lockPrune sync.RWMutex
+	lockSet   sync.RWMutex
 }
 
 // Get calls GetFunc.
@@ -92,6 +104,38 @@ func (mock *StorageMock) GetCalls() []struct {
 	mock.lockGet.RLock()
 	calls = mock.calls.Get
 	mock.lockGet.RUnlock()
+	return calls
+}
+
+// Prune calls PruneFunc.
+func (mock *StorageMock) Prune(contextMoqParam context.Context) error {
+	if mock.PruneFunc == nil {
+		panic("StorageMock.PruneFunc: method is nil but Storage.Prune was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockPrune.Lock()
+	mock.calls.Prune = append(mock.calls.Prune, callInfo)
+	mock.lockPrune.Unlock()
+	return mock.PruneFunc(contextMoqParam)
+}
+
+// PruneCalls gets all the calls that were made to Prune.
+// Check the length with:
+//
+//	len(mockedStorage.PruneCalls())
+func (mock *StorageMock) PruneCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockPrune.RLock()
+	calls = mock.calls.Prune
+	mock.lockPrune.RUnlock()
 	return calls
 }
 

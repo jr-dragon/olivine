@@ -25,7 +25,7 @@ func NewApp(config *data.Config) (*App, error) {
 		return zero, err
 	}
 	val := kessoku.Provide(cmd.NewCommands).Fn()(storage)
-	worker := kessoku.Bind[service.Worker](kessoku.Provide(service.NewWorker)).Fn()(config, aof)
+	worker := kessoku.Bind[service.Worker](kessoku.Provide(service.NewWorker)).Fn()(config, aof, storage)
 	handler := kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, cmds []cmd.Command) server.Handler {
 		middlewares := []server.Middleware{}
 		if cfg.AOFEnabled {

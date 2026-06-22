@@ -3,8 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	
+
 	"olivine/internal/repo"
+	"olivine/internal/repo/object"
 	"olivine/pkg/resp"
 )
 
@@ -27,7 +28,7 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	}
 
 	k, v := args[0], args[1]
-	if err := c.storage.Set(ctx, k.String(), v.String()); err != nil {
+	if err := c.storage.Set(ctx, object.NewString(k.String(), v.String(), nil)); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
 

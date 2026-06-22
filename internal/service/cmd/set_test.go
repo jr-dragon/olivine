@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"olivine/internal/repo"
+	"olivine/internal/repo/object"
 	"olivine/pkg/resp"
 	"slices"
 	"testing"
@@ -36,7 +37,7 @@ func TestSet_Exec(t *testing.T) {
 		{
 			name: "set",
 			storage: &repo.StorageMock{
-				SetFunc: func(ctx context.Context, k, v string) error { return nil },
+				SetFunc: func(ctx context.Context, obj object.Object) error { return nil },
 			},
 			cmd: resp.NewTestCommand(resp.NewArray([]resp.Value{
 				resp.NewBulkString("SET"),

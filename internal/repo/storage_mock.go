@@ -5,6 +5,7 @@ package repo
 
 import (
 	"context"
+	"olivine/internal/repo/object"
 	"sync"
 )
 
@@ -18,10 +19,10 @@ var _ Storage = &StorageMock{}
 //
 //		// make and configure a mocked Storage
 //		mockedStorage := &StorageMock{
-//			GetFunc: func(ctx context.Context, k string) (string, error) {
+//			GetFunc: func(ctx context.Context, k string) (object.Object, error) {
 //				panic("mock out the Get method")
 //			},
-//			SetFunc: func(ctx context.Context, k string, v string) error {
+//			SetFunc: func(ctx context.Context, obj object.Object) error {
 //				panic("mock out the Set method")
 //			},
 //		}
@@ -32,10 +33,10 @@ var _ Storage = &StorageMock{}
 //	}
 type StorageMock struct {
 	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, k string) (string, error)
+	GetFunc func(ctx context.Context, k string) (object.Object, error)
 
 	// SetFunc mocks the Set method.
-	SetFunc func(ctx context.Context, k string, v string) error
+	SetFunc func(ctx context.Context, obj object.Object) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -50,10 +51,8 @@ type StorageMock struct {
 		Set []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// K is the k argument value.
-			K string
-			// V is the v argument value.
-			V string
+			// Obj is the obj argument value.
+			Obj object.Object
 		}
 	}
 	lockGet sync.RWMutex
@@ -61,7 +60,7 @@ type StorageMock struct {
 }
 
 // Get calls GetFunc.
-func (mock *StorageMock) Get(ctx context.Context, k string) (string, error) {
+func (mock *StorageMock) Get(ctx context.Context, k string) (object.Object, error) {
 	if mock.GetFunc == nil {
 		panic("StorageMock.GetFunc: method is nil but Storage.Get was just called")
 	}
@@ -97,23 +96,21 @@ func (mock *StorageMock) GetCalls() []struct {
 }
 
 // Set calls SetFunc.
-func (mock *StorageMock) Set(ctx context.Context, k string, v string) error {
+func (mock *StorageMock) Set(ctx context.Context, obj object.Object) error {
 	if mock.SetFunc == nil {
 		panic("StorageMock.SetFunc: method is nil but Storage.Set was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		K   string
-		V   string
+		Obj object.Object
 	}{
 		Ctx: ctx,
-		K:   k,
-		V:   v,
+		Obj: obj,
 	}
 	mock.lockSet.Lock()
 	mock.calls.Set = append(mock.calls.Set, callInfo)
 	mock.lockSet.Unlock()
-	return mock.SetFunc(ctx, k, v)
+	return mock.SetFunc(ctx, obj)
 }
 
 // SetCalls gets all the calls that were made to Set.
@@ -122,13 +119,11 @@ func (mock *StorageMock) Set(ctx context.Context, k string, v string) error {
 //	len(mockedStorage.SetCalls())
 func (mock *StorageMock) SetCalls() []struct {
 	Ctx context.Context
-	K   string
-	V   string
+	Obj object.Object
 } {
 	var calls []struct {
 		Ctx context.Context
-		K   string
-		V   string
+		Obj object.Object
 	}
 	mock.lockSet.RLock()
 	calls = mock.calls.Set

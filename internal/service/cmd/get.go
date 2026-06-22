@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"olivine/internal/repo"
+	"olivine/internal/repo/object"
 	"olivine/pkg/resp"
 )
 
@@ -38,5 +39,12 @@ func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
 
-	return resp.NewBulkString(v), nil
+	var ret resp.Value
+	if str, ok := v.(*object.String); ok {
+		ret = resp.NewBulkString(str.String())
+	} else {
+		ret = resp.NewSimpleError(errors.New("Operation against a key holding the wrong kind of value"))
+	}
+
+	return ret, nil
 }

@@ -23,8 +23,8 @@ const (
 type App struct {
 	cfg *data.Config
 
-	aof service.AOF
-	srv server.Server
+	worker service.Worker
+	server server.Server
 }
 
 func (app *App) Run() error {
@@ -32,32 +32,22 @@ func (app *App) Run() error {
 	defer stop()
 
 	slog.Info("restoring data from disk")
-	if err := app.srv.RestoreFromDisk(); err != nil {
+	if err := app.server.RestoreFromDisk(); err != nil {
 		return err
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	if app.cfg.AOFEnabled && app.cfg.AOFFsync == data.AOFFsyncEverySec {
-		g.Go(func() error {
-			ticker := time.NewTicker(time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-ticker.C:
-					if err := app.aof.Sync(); err != nil {
-						return err
-					}
-				}
-			}
-		})
-	}
+	g.Go(func() error {
+		slog.Info("starting olivine workers")
+		if err := app.worker.Start(ctx); err != nil {
+			return err
+		}
+		return nil
+	})
 
 	g.Go(func() error {
 		slog.Info("starting olivine server")
-		if err := app.srv.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {
+		if err := app.server.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {
 			return err
 		}
 		return nil
@@ -73,7 +63,7 @@ func (app *App) Run() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
 
-		if err := app.srv.Shutdown(shutdownCtx); err != nil {
+		if err := app.server.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
 

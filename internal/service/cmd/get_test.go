@@ -3,11 +3,12 @@ package cmd
 import (
 	"context"
 	"errors"
+	"slices"
+	"testing"
+
 	"olivine/internal/repo"
 	"olivine/internal/repo/object"
 	"olivine/pkg/resp"
-	"slices"
-	"testing"
 )
 
 func TestGet_Exec(t *testing.T) {

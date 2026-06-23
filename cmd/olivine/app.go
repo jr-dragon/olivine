@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"olivine/internal/data"
 	"olivine/internal/server"
 	"olivine/internal/service"
-
-	"golang.org/x/sync/errgroup"
 )
 
 const (

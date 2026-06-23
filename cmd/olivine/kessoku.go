@@ -1,13 +1,13 @@
 package main
 
 import (
+	"github.com/mazrean/kessoku"
+
 	"olivine/internal/data"
 	"olivine/internal/repo"
 	"olivine/internal/server"
 	"olivine/internal/service"
 	"olivine/internal/service/cmd"
-
-	"github.com/mazrean/kessoku"
 )
 
 //go:generate go tool kessoku $GOFILE

@@ -18,5 +18,7 @@ func NewCommands(storage repo.Storage) []Command {
 
 		NewSet(storage),
 		NewGet(storage),
+
+		NewTTL(storage),
 	}
 }

@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"olivine/internal/repo/object"
 	"sync"
 	"time"
+
+	"olivine/internal/repo/object"
 )
 
 var (

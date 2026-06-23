@@ -3,9 +3,10 @@ package repo
 import (
 	"context"
 	"fmt"
-	"olivine/internal/repo/object"
 	"testing"
 	"time"
+
+	"olivine/internal/repo/object"
 )
 
 func TestMapStorage_Prune(t *testing.T) {

@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"olivine/internal/repo"
-	"olivine/internal/repo/object"
-	"olivine/pkg/resp"
 	"slices"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"olivine/internal/repo"
+	"olivine/pkg/resp"
 )
 
 func TestSet_Exec(t *testing.T) {
@@ -40,7 +40,7 @@ func TestSet_Exec(t *testing.T) {
 		{
 			name: "set",
 			storage: &repo.StorageMock{
-				SetFunc: func(ctx context.Context, obj object.Object) error { return nil },
+				SetFunc: func(ctx context.Context, p repo.SetParam) error { return nil },
 			},
 			cmd: resp.NewTestCommand(resp.NewArray([]resp.Value{
 				resp.NewBulkString("SET"),
@@ -52,9 +52,9 @@ func TestSet_Exec(t *testing.T) {
 		{
 			name: "set with ex",
 			storage: &repo.StorageMock{
-				SetFunc: func(ctx context.Context, obj object.Object) error {
-					if obj.ExpiresAt() == nil || !obj.ExpiresAt().Equal(time.Now().Add(time.Second*10)) {
-						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", time.Now().Add(time.Second*10), obj.ExpiresAt())
+				SetFunc: func(ctx context.Context, p repo.SetParam) error {
+					if p.Obj().ExpiresAt() == nil || !p.Obj().ExpiresAt().Equal(time.Now().Add(time.Second*10)) {
+						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", time.Now().Add(time.Second*10), p.Obj().ExpiresAt())
 					}
 					return nil
 				},
@@ -71,9 +71,9 @@ func TestSet_Exec(t *testing.T) {
 		{
 			name: "set with px",
 			storage: &repo.StorageMock{
-				SetFunc: func(ctx context.Context, obj object.Object) error {
-					if obj.ExpiresAt() == nil || !obj.ExpiresAt().Equal(time.Now().Add(time.Millisecond*11)) {
-						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", time.Now().Add(time.Millisecond*11), obj.ExpiresAt())
+				SetFunc: func(ctx context.Context, p repo.SetParam) error {
+					if p.Obj().ExpiresAt() == nil || !p.Obj().ExpiresAt().Equal(time.Now().Add(time.Millisecond*10)) {
+						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", time.Now().Add(time.Millisecond*10), p.Obj().ExpiresAt())
 					}
 					return nil
 				},
@@ -83,17 +83,17 @@ func TestSet_Exec(t *testing.T) {
 				resp.NewBulkString("foo"),
 				resp.NewBulkString("bar"),
 				resp.NewBulkString("PX"),
-				resp.NewBulkString("11"),
+				resp.NewBulkString("10"),
 			})),
 			expect: []byte("+OK\r\n"),
 		},
 		{
 			name: "set with exat",
 			storage: &repo.StorageMock{
-				SetFunc: func(ctx context.Context, obj object.Object) error {
+				SetFunc: func(ctx context.Context, p repo.SetParam) error {
 					expected := time.Unix(1_700_000_000, 0)
-					if obj.ExpiresAt() == nil || !obj.ExpiresAt().Equal(expected) {
-						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", expected, obj.ExpiresAt())
+					if p.Obj().ExpiresAt() == nil || !p.Obj().ExpiresAt().Equal(expected) {
+						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", expected, p.Obj().ExpiresAt())
 					}
 					return nil
 				},
@@ -110,10 +110,10 @@ func TestSet_Exec(t *testing.T) {
 		{
 			name: "set with pxat",
 			storage: &repo.StorageMock{
-				SetFunc: func(ctx context.Context, obj object.Object) error {
+				SetFunc: func(ctx context.Context, p repo.SetParam) error {
 					expected := time.UnixMilli(1_700_000_000_123)
-					if obj.ExpiresAt() == nil || !obj.ExpiresAt().Equal(expected) {
-						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", expected, obj.ExpiresAt())
+					if p.Obj().ExpiresAt() == nil || !p.Obj().ExpiresAt().Equal(expected) {
+						return fmt.Errorf("unexpected expire time: expected '%v', got '%v'", expected, p.Obj().ExpiresAt())
 					}
 					return nil
 				},

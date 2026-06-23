@@ -26,38 +26,16 @@ func (c *Set) Command() string {
 }
 
 func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
-	args := cmd.Args()
-	p, err := c.parse(cmd)
+	parsed, err := c.parse(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	k, v := args[0], args[1]
-	if err := c.storage.Set(ctx, object.NewString(k.String(), v.String(), p.Exp)); err != nil {
+	if err := c.storage.Set(ctx, parsed); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
 
 	return resp.SimpleString("OK"), nil
-}
-
-const (
-	nx    = iota + 1 // set value only not exists
-	xx               // set value only exists
-	ifeq             // set only value == cond.Val
-	ifne             // set only value != cond.Val
-	ifdeq            // set only XXH3(value) == cond.Val
-	ifdne            // setonly XXH3(value) != cond.Val
-)
-
-type parseSetCond struct {
-	Typ int
-	Val string
-}
-
-type parsedSet struct {
-	Cond parseSetCond
-	Get  bool
-	Exp  *time.Time
 }
 
 func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
@@ -80,8 +58,10 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 	for _, arg := range cmd.Args() {
 		switch state {
 		case awaitingKey:
+			p.K = arg.String()
 			state = awaitingValue
 		case awaitingValue:
+			p.V = arg.String()
 			state = awaitingOption
 		case awaitingOption:
 			switch strings.ToUpper(arg.String()) {
@@ -205,4 +185,32 @@ func parseDuration(s, unit string) (time.Duration, error) {
 	} else {
 		return d, nil
 	}
+}
+
+const (
+	nx    = iota + 1 // set value only not exists
+	xx               // set value only exists
+	ifeq             // set only value == cond.Val
+	ifne             // set only value != cond.Val
+	ifdeq            // set only XXH3(value) == cond.Val
+	ifdne            // setonly XXH3(value) != cond.Val
+)
+
+type parseSetCond struct {
+	Typ int
+	Val string
+}
+
+type parsedSet struct {
+	K    string
+	V    string
+	Cond parseSetCond
+	Get  bool
+	Exp  *time.Time
+}
+
+var _ repo.SetParam = parsedSet{}
+
+func (parsed parsedSet) Obj() object.Object {
+	return object.NewString(parsed.K, parsed.V, parsed.Exp)
 }

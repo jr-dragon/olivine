@@ -25,7 +25,7 @@ var _ Storage = &StorageMock{}
 //			PruneFunc: func(contextMoqParam context.Context) error {
 //				panic("mock out the Prune method")
 //			},
-//			SetFunc: func(ctx context.Context, obj object.Object) error {
+//			SetFunc: func(ctx context.Context, param SetParam) error {
 //				panic("mock out the Set method")
 //			},
 //		}
@@ -42,7 +42,7 @@ type StorageMock struct {
 	PruneFunc func(contextMoqParam context.Context) error
 
 	// SetFunc mocks the Set method.
-	SetFunc func(ctx context.Context, obj object.Object) error
+	SetFunc func(ctx context.Context, param SetParam) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -62,8 +62,8 @@ type StorageMock struct {
 		Set []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj object.Object
+			// Param is the param argument value.
+			Param SetParam
 		}
 	}
 	lockGet   sync.RWMutex
@@ -140,21 +140,21 @@ func (mock *StorageMock) PruneCalls() []struct {
 }
 
 // Set calls SetFunc.
-func (mock *StorageMock) Set(ctx context.Context, obj object.Object) error {
+func (mock *StorageMock) Set(ctx context.Context, param SetParam) error {
 	if mock.SetFunc == nil {
 		panic("StorageMock.SetFunc: method is nil but Storage.Set was just called")
 	}
 	callInfo := struct {
-		Ctx context.Context
-		Obj object.Object
+		Ctx   context.Context
+		Param SetParam
 	}{
-		Ctx: ctx,
-		Obj: obj,
+		Ctx:   ctx,
+		Param: param,
 	}
 	mock.lockSet.Lock()
 	mock.calls.Set = append(mock.calls.Set, callInfo)
 	mock.lockSet.Unlock()
-	return mock.SetFunc(ctx, obj)
+	return mock.SetFunc(ctx, param)
 }
 
 // SetCalls gets all the calls that were made to Set.
@@ -162,12 +162,12 @@ func (mock *StorageMock) Set(ctx context.Context, obj object.Object) error {
 //
 //	len(mockedStorage.SetCalls())
 func (mock *StorageMock) SetCalls() []struct {
-	Ctx context.Context
-	Obj object.Object
+	Ctx   context.Context
+	Param SetParam
 } {
 	var calls []struct {
-		Ctx context.Context
-		Obj object.Object
+		Ctx   context.Context
+		Param SetParam
 	}
 	mock.lockSet.RLock()
 	calls = mock.calls.Set

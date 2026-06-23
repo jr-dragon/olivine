@@ -15,9 +15,13 @@ var (
 
 //go:generate go tool moq -rm -out storage_mock.go . Storage
 type Storage interface {
-	Set(ctx context.Context, obj object.Object) error
+	Set(ctx context.Context, param SetParam) error
 	Get(ctx context.Context, k string) (object.Object, error)
 	Prune(context.Context) error
+}
+
+type SetParam interface {
+	Obj() object.Object
 }
 
 func NewStorage() Storage {
@@ -32,11 +36,11 @@ type mapStorage struct {
 	mu      sync.RWMutex
 }
 
-func (s *mapStorage) Set(_ context.Context, obj object.Object) error {
+func (s *mapStorage) Set(_ context.Context, param SetParam) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.storage[obj.Key()] = obj
+	s.storage[param.Obj().Key()] = param.Obj()
 	return nil
 }
 

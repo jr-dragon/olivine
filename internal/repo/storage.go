@@ -61,38 +61,43 @@ func (s *mapStorage) Get(_ context.Context, k string) (v object.Object, err erro
 }
 
 func (s *mapStorage) Prune(ctx context.Context) error {
-	const sampleSize = 10
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for len(s.storage) > 0 {
+	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			sampled := 0
-			expired := 0
-			now := time.Now()
-
-			for k, v := range s.storage {
-				if sampled == sampleSize {
-					break
-				}
-
-				sampled++
-				if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
-					delete(s.storage, k)
-					expired++
-				}
-			}
-
-			if expired*4 < sampled {
+			if stop := s.tryPrune(); stop {
 				return nil
 			}
 		}
+	}
+}
 
+func (s *mapStorage) tryPrune() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(s.storage) == 0 {
+		return true
 	}
 
-	return nil
+	const sampleSize = 10
+
+	sampled := 0
+	expired := 0
+	now := time.Now()
+
+	for k, v := range s.storage {
+		if sampled == sampleSize {
+			break
+		}
+
+		sampled++
+		if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
+			delete(s.storage, k)
+			expired++
+		}
+	}
+
+	return expired*4 < sampled
 }

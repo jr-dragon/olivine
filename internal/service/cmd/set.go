@@ -30,6 +30,9 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	if parsed.Get || parsed.Cond.Typ != 0 || (parsed.Exp != nil && parsed.Exp.IsZero()) {
+		return nil, fmt.Errorf("%w: unimplemented", ErrSyntax)
+	}
 
 	if err := c.storage.Set(ctx, parsed); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)

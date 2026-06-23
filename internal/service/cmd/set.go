@@ -57,8 +57,9 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 	state := awaitingKey
 	var conditionType int
 	var expirationOption string
+	var expirationOptionIndex int
 
-	for _, arg := range cmd.Args() {
+	for i, arg := range cmd.Args() {
 		switch state {
 		case awaitingKey:
 			p.K = arg.String()
@@ -91,6 +92,7 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 				state = awaitingPostGetOption
 			case "EX", "PX", "EXAT", "PXAT":
 				expirationOption = strings.ToUpper(arg.String())
+				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
 				p.Exp = new(time.Time)
@@ -108,6 +110,7 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 				state = awaitingPostGetOption
 			case "EX", "PX", "EXAT", "PXAT":
 				expirationOption = strings.ToUpper(arg.String())
+				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
 				p.Exp = new(time.Time)
@@ -119,6 +122,7 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 			switch strings.ToUpper(arg.String()) {
 			case "EX", "PX", "EXAT", "PXAT":
 				expirationOption = strings.ToUpper(arg.String())
+				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
 				p.Exp = new(time.Time)
@@ -139,6 +143,11 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 
 	if state != awaitingOption && state != awaitingPostConditionOption && state != awaitingPostGetOption && state != done {
 		return parsedSet{}, fmt.Errorf("%w: invalid SET syntax", ErrSyntax)
+	}
+
+	if p.Exp != nil && !p.Exp.IsZero() {
+		cmd.UpdateAOF(expirationOptionIndex+1, resp.NewBulkString("PXAT"))
+		cmd.UpdateAOF(expirationOptionIndex+2, resp.NewBulkString(strconv.FormatInt(p.Exp.UnixMilli(), 10)))
 	}
 
 	return p, nil

@@ -45,7 +45,7 @@ func (aof *file) Write(v *resp.Command) error {
 		return nil
 	}
 
-	marshaled := v.Marshal()
+	marshaled := v.MarshalAOF()
 	n, err := aof.f.Write(marshaled)
 	if err != nil {
 		return err

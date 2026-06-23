@@ -18,6 +18,7 @@ var (
 
 type Command struct {
 	raw  Value
+	aof  Array
 	cmd  BulkString
 	args []BulkString
 }
@@ -52,6 +53,7 @@ func ReadCommand(rd *Reader) (*Command, error) {
 
 	return &Command{
 		raw:  v,
+		aof:  arr.Clone(),
 		cmd:  cmd,
 		args: args,
 	}, nil
@@ -88,6 +90,14 @@ func (cmd *Command) Args() []BulkString {
 func (cmd *Command) Dirty() bool {
 	_, isdirty := dirtyCommands[cmd.Command()]
 	return isdirty
+}
+
+func (cmd *Command) UpdateAOF(i int, v Value) {
+	cmd.aof.data[i] = v
+}
+
+func (cmd *Command) MarshalAOF() []byte {
+	return cmd.aof.Marshal()
 }
 
 func (cmd *Command) Marshal() []byte {

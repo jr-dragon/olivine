@@ -74,6 +74,7 @@ func NewTestCommand(v Array) *Command {
 
 	return &Command{
 		raw:  v,
+		aof:  v.Clone(),
 		cmd:  strs[0],
 		args: args,
 	}

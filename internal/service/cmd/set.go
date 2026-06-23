@@ -31,7 +31,8 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 		return nil, err
 	}
 	if parsed.Get || parsed.Cond.Typ != 0 || (parsed.Exp != nil && parsed.Exp.IsZero()) {
-		return nil, fmt.Errorf("%w: unimplemented", ErrSyntax)
+		err := fmt.Errorf("%w: unimplemented", ErrSyntax)
+		return resp.NewSimpleError(err), err
 	}
 
 	if err := c.storage.Set(ctx, parsed); err != nil {

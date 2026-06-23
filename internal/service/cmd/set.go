@@ -193,7 +193,7 @@ const (
 	ifeq             // set only value == cond.Val
 	ifne             // set only value != cond.Val
 	ifdeq            // set only XXH3(value) == cond.Val
-	ifdne            // setonly XXH3(value) != cond.Val
+	ifdne            // set only XXH3(value) != cond.Val
 )
 
 type parseSetCond struct {

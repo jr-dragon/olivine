@@ -33,7 +33,7 @@ func NewStorage() Storage {
 
 type mapStorage struct {
 	storage map[string]object.Object
-	mu      sync.RWMutex
+	mu      sync.Mutex
 }
 
 func (s *mapStorage) Set(_ context.Context, param SetParam) error {
@@ -45,8 +45,8 @@ func (s *mapStorage) Set(_ context.Context, param SetParam) error {
 }
 
 func (s *mapStorage) Get(_ context.Context, k string) (v object.Object, err error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	var ok bool
 	if v, ok = s.storage[k]; !ok {

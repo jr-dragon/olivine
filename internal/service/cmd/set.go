@@ -25,10 +25,6 @@ func (c *Set) Command() string {
 	return "SET"
 }
 
-func (c *Set) Validate(cmd *resp.Command) error {
-	return nil
-}
-
 func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	args := cmd.Args()
 	if len(args) < 2 {
@@ -46,6 +42,30 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	}
 
 	return resp.SimpleString("OK"), nil
+}
+
+const (
+	nx    = iota + 1 // set value only not exists
+	xx               // set value only exists
+	ifeq             // set only value == cond.Val
+	ifne             // set only value != cond.Val
+	ifdeq            // set only XXH3(value) == cond.Val
+	ifdne            // setonly XXH3(value) != cond.Val
+)
+
+type parseSetCond struct {
+	Typ int
+	Val string
+}
+
+type parsedSet struct {
+	Cond parseSetCond
+	Get  bool
+	Exp  *time.Time
+}
+
+func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
+	return
 }
 
 // TODO: SET {key} {value} [NX|XX|IFEQ {ifeq-val}|IFNE {ifne-val}|IFDEQ {ifdeq-value}|IFDNE {ifdne-value} [GET] [EX {sec}|PX {msec}|EXAT {uxtime}|PXAT {uxptime}|KEEPTTL]

@@ -93,3 +93,45 @@ func TestGet_Exec(t *testing.T) {
 		})
 	}
 }
+
+func TestGet_parse(t *testing.T) {
+	testcases := []struct {
+		name string
+		args []resp.Value
+		want error
+	}{
+		{
+			name: "without key",
+			args: []resp.Value{
+				resp.NewBulkString("GET"),
+			},
+			want: ErrValidation,
+		},
+		{
+			name: "with key",
+			args: []resp.Value{
+				resp.NewBulkString("GET"),
+				resp.NewBulkString("key"),
+			},
+		},
+		{
+			name: "with too many keys",
+			args: []resp.Value{
+				resp.NewBulkString("GET"),
+				resp.NewBulkString("key"),
+				resp.NewBulkString("another-key"),
+			},
+			want: ErrValidation,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			command := resp.NewTestCommand(resp.NewArray(tc.args))
+			err := (&Get{}).parse(command)
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("Validate() error = %v, want errors.Is(..., %v)", err, tc.want)
+			}
+		})
+	}
+}

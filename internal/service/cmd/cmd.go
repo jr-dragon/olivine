@@ -9,8 +9,6 @@ import (
 
 type Command interface {
 	Command() string
-
-	Validate(*resp.Command) error
 	Exec(context.Context, *resp.Command) (resp.Value, error)
 }
 

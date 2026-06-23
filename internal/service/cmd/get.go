@@ -20,19 +20,16 @@ func NewGet(storage repo.Storage) *Get {
 	}
 }
 
-func (c *Get) Validate(cmd *resp.Command) error {
-	return nil
-}
-
 func (c *Get) Command() string {
 	return "GET"
 }
 
 func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
-	args := cmd.Args()
-	if len(args) != 1 {
-		return nil, fmt.Errorf("%w: argument count mismatch: expect '%d' got '%d'", ErrValidation, len(args), 1)
+	if err := c.parse(cmd); err != nil {
+		return nil, err
 	}
+
+	args := cmd.Args()
 
 	k := args[0]
 	v, err := c.storage.Get(ctx, k.String())
@@ -51,4 +48,28 @@ func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	}
 
 	return ret, nil
+}
+
+func (c *Get) parse(cmd *resp.Command) error {
+	const (
+		awaitingKey = iota
+		keyReceived
+		tooManyKeys
+	)
+
+	state := awaitingKey
+	for range cmd.Args() {
+		switch state {
+		case awaitingKey:
+			state = keyReceived
+		case keyReceived:
+			state = tooManyKeys
+		}
+	}
+
+	if state != keyReceived {
+		return fmt.Errorf("%w: argument count mismatch: expect %d got %d", ErrSyntax, 1, len(cmd.Args()))
+	}
+
+	return nil
 }

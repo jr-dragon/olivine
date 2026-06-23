@@ -20,6 +20,10 @@ func NewGet(storage repo.Storage) *Get {
 	}
 }
 
+func (c *Get) Validate(cmd *resp.Command) error {
+	return nil
+}
+
 func (c *Get) Command() string {
 	return "GET"
 }

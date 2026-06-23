@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	
+
 	"olivine/pkg/resp"
 )
 
@@ -10,6 +10,10 @@ type Ping struct{}
 
 func (c *Ping) Command() string {
 	return "PING"
+}
+
+func (c *Ping) Validate(cmd *resp.Command) (err error) {
+	return nil
 }
 
 func (c *Ping) Exec(_ context.Context, cmd *resp.Command) (resp.Value, error) {

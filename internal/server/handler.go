@@ -25,9 +25,11 @@ type Middleware func(HandlerFunc) HandlerFunc
 
 func NewHandler(cmds []cmd.Command, middlewares ...Middleware) Handler {
 	h := simpleHandler{}
-	h.factory = make(map[string]HandlerFunc)
+	h.executor = make(map[string]HandlerFunc)
+	h.validator = make(map[string]func(*resp.Command) error)
 	for _, cmd := range cmds {
-		h.factory[cmd.Command()] = cmd.Exec
+		h.executor[cmd.Command()] = cmd.Exec
+		h.validator[cmd.Command()] = cmd.Validate
 	}
 
 	h.serve = h.Exec
@@ -39,8 +41,9 @@ func NewHandler(cmds []cmd.Command, middlewares ...Middleware) Handler {
 }
 
 type simpleHandler struct {
-	factory map[string]HandlerFunc
-	serve   HandlerFunc
+	executor  map[string]HandlerFunc
+	validator map[string]func(*resp.Command) error
+	serve     HandlerFunc
 }
 
 func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Value, error) {
@@ -59,11 +62,13 @@ func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Va
 }
 
 func (h *simpleHandler) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
-	f, ok := h.factory[cmd.Command()]
-	if !ok {
+	if v, ok := h.validator[cmd.Command()]; !ok {
 		err := fmt.Errorf("%w: unknown command: %s", ErrClient, cmd.Command())
+		return resp.NewSimpleError(err), err
+	} else if err := v(cmd); err != nil {
+		err := fmt.Errorf("%w: %w", ErrClient, err)
 		return resp.NewSimpleError(err), err
 	}
 
-	return f(ctx, cmd)
+	return h.executor[cmd.Command()](ctx, cmd)
 }

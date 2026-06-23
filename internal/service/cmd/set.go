@@ -25,6 +25,10 @@ func (c *Set) Command() string {
 	return "SET"
 }
 
+func (c *Set) Validate(cmd *resp.Command) error {
+	return nil
+}
+
 func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	args := cmd.Args()
 	if len(args) < 2 {

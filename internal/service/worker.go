@@ -33,7 +33,7 @@ type worker struct {
 func (w *worker) Start(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 
-	if w.cfg.AOFEnabled && w.cfg.AOFFsync == data.AOFFsyncAlways {
+	if w.cfg.AOFEnabled && w.cfg.AOFFsync == data.AOFFsyncEverySec {
 		g.Go(w.aofSyncer(ctx))
 	}
 

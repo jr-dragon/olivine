@@ -28,7 +28,7 @@ func (c *Set) Command() string {
 func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	parsed, err := c.parse(cmd)
 	if err != nil {
-		return nil, err
+		return resp.NewSimpleError(err), err
 	}
 	if parsed.Get || parsed.Cond.Typ != 0 || (parsed.Exp != nil && parsed.Exp.IsZero()) {
 		err := fmt.Errorf("%w: unimplemented", ErrSyntax)
@@ -173,7 +173,7 @@ func parseExpiration(option, value string) (*time.Time, error) {
 		if err != nil {
 			return nil, err
 		}
-		if timestamp < 0 {
+		if timestamp <= 0 {
 			return nil, errors.New("invalid expire time")
 		}
 		if option == "EXAT" {

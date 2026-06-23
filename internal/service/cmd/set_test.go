@@ -152,3 +152,132 @@ func TestSet_Exec(t *testing.T) {
 		})
 	}
 }
+
+func TestSet_parse(t *testing.T) {
+	testcases := []struct {
+		name         string
+		args         []resp.Value
+		wantCond     parseSetCond
+		wantGet      bool
+		wantExp      *time.Time
+		wantExpAfter time.Duration
+		wantKeepTTL  bool
+		wantErr      error
+	}{
+		{
+			name: "without options",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
+			},
+		},
+		{
+			name: "NX with GET and EX",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
+				resp.NewBulkString("NX"), resp.NewBulkString("GET"), resp.NewBulkString("EX"), resp.NewBulkString("10"),
+			},
+			wantCond:     parseSetCond{Typ: nx},
+			wantGet:      true,
+			wantExpAfter: 10 * time.Second,
+		},
+		{
+			name: "conditional value with PXAT",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
+				resp.NewBulkString("IFEQ"), resp.NewBulkString("expected"), resp.NewBulkString("PXAT"), resp.NewBulkString("1700000000123"),
+			},
+			wantCond: parseSetCond{Typ: ifeq, Val: "expected"},
+			wantExp:  new(time.UnixMilli(1_700_000_000_123)),
+		},
+		{
+			name: "KEEPTTL",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"), resp.NewBulkString("KEEPTTL"),
+			},
+			wantKeepTTL: true,
+		},
+		{
+			name: "missing value",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"),
+			},
+			wantErr: ErrValidation,
+		},
+		{
+			name: "condition without comparison value",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"), resp.NewBulkString("IFNE"),
+			},
+			wantErr: ErrValidation,
+		},
+		{
+			name: "expiration without value",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"), resp.NewBulkString("EX"),
+			},
+			wantErr: ErrValidation,
+		},
+		{
+			name: "option after expiration",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
+				resp.NewBulkString("EX"), resp.NewBulkString("10"), resp.NewBulkString("GET"),
+			},
+			wantErr: ErrValidation,
+		},
+		{
+			name: "duplicate condition",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
+				resp.NewBulkString("NX"), resp.NewBulkString("XX"),
+			},
+			wantErr: ErrValidation,
+		},
+		{
+			name: "duplicate GET",
+			args: []resp.Value{
+				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
+				resp.NewBulkString("GET"), resp.NewBulkString("GET"),
+			},
+			wantErr: ErrValidation,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				command := resp.NewTestCommand(resp.NewArray(tc.args))
+				got, err := (&Set{}).parse(command)
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("parse() error = %v, want errors.Is(..., %v)", err, tc.wantErr)
+				}
+				if err != nil {
+					return
+				}
+				if got.Cond != tc.wantCond {
+					t.Errorf("parse() condition = %#v, want %#v", got.Cond, tc.wantCond)
+				}
+				if got.Get != tc.wantGet {
+					t.Errorf("parse() GET = %t, want %t", got.Get, tc.wantGet)
+				}
+				if tc.wantKeepTTL {
+					if got.Exp == nil || !got.Exp.IsZero() {
+						t.Errorf("parse() expiration = %v, want non-nil zero time", got.Exp)
+					}
+					return
+				}
+				wantExp := tc.wantExp
+				if tc.wantExpAfter != 0 {
+					wantExp = new(time.Now().Add(tc.wantExpAfter))
+				}
+				if got.Exp == nil || wantExp == nil {
+					if got.Exp != wantExp {
+						t.Errorf("parse() expiration = %v, want %v", got.Exp, wantExp)
+					}
+				} else if !got.Exp.Equal(*wantExp) {
+					t.Errorf("parse() expiration = %v, want %v", got.Exp, wantExp)
+				}
+			})
+		})
+	}
+}

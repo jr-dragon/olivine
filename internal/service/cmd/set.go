@@ -187,13 +187,17 @@ func parseExpiration(option, value string) (*time.Time, error) {
 }
 
 func parseDuration(s, unit string) (time.Duration, error) {
+	if _, err := strconv.Atoi(s); err != nil {
+		return 0, fmt.Errorf("invalid expire time: %w", err)
+	}
+
 	var sb strings.Builder
 	sb.WriteString(s)
 	sb.WriteString(unit)
 
 	if d, err := time.ParseDuration(sb.String()); err != nil {
 		return d, err
-	} else if d < 0 {
+	} else if d <= 0 {
 		return d, errors.New("invalid expire time")
 	} else {
 		return d, nil

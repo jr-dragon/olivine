@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -71,6 +72,9 @@ func (w *worker) storagePruner(ctx context.Context) func() error {
 				return nil
 			case <-ticker.C:
 				if err := w.storage.Prune(ctx); err != nil {
+					if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+						return nil
+					}
 					return err
 				}
 			}

@@ -4,27 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"olivine/internal/repo"
-	"olivine/internal/repo/object"
 	"olivine/pkg/resp"
 )
 
-type Get struct {
+type TTL struct {
 	storage repo.Storage
 }
 
-func NewGet(storage repo.Storage) *Get {
-	return &Get{
+func NewTTL(storage repo.Storage) *TTL {
+	return &TTL{
 		storage: storage,
 	}
 }
 
-func (c *Get) Command() string {
-	return "GET"
+func (c *TTL) Command() string {
+	return "TTL"
 }
 
-func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
+func (c *TTL) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	if err := c.parse(cmd); err != nil {
 		return nil, err
 	}
@@ -35,22 +35,18 @@ func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	v, err := c.storage.Get(ctx, k.String())
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			return resp.NewNullBulkString(), nil
+			return resp.Integer(-2), nil
 		}
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
-
-	var ret resp.Value
-	if str, ok := v.(*object.String); ok {
-		ret = resp.NewBulkString(str.String())
-	} else {
-		ret = resp.NewSimpleError(errors.New("Operation against a key holding the wrong kind of value"))
+	if v.ExpiresAt() == nil {
+		return resp.Integer(-1), nil
 	}
 
-	return ret, nil
+	return resp.Integer(time.Until(*v.ExpiresAt()) / time.Second), nil
 }
 
-func (c *Get) parse(cmd *resp.Command) error {
+func (c *TTL) parse(cmd *resp.Command) error {
 	const (
 		awaitingKey = iota
 		keyReceived

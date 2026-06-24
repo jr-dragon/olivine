@@ -1,13 +1,13 @@
 package main
 
 import (
+	"github.com/mazrean/kessoku"
+
 	"olivine/internal/data"
 	"olivine/internal/repo"
 	"olivine/internal/server"
 	"olivine/internal/service"
 	"olivine/internal/service/cmd"
-
-	"github.com/mazrean/kessoku"
 )
 
 //go:generate go tool kessoku $GOFILE
@@ -26,6 +26,7 @@ var _ = kessoku.Inject[*App](
 		return service.NewAOF(cfg, AOFPath)
 	})),
 	kessoku.Provide(cmd.NewCommands),
+	kessoku.Bind[service.Worker](kessoku.Provide(service.NewWorker)),
 
 	// servers
 	kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, cmds []cmd.Command) server.Handler {
@@ -46,12 +47,12 @@ var _ = kessoku.Inject[*App](
 	kessoku.Bind[server.Server](kessoku.Provide(server.NewServer)),
 
 	// application
-	kessoku.Provide(func(cfg *data.Config, aof service.AOF, srv server.Server) *App {
+	kessoku.Provide(func(cfg *data.Config, worker service.Worker, server server.Server) *App {
 		return &App{
 			cfg: cfg,
 
-			aof: aof,
-			srv: srv,
+			worker: worker,
+			server: server,
 		}
 	}),
 )

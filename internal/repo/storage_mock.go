@@ -5,6 +5,7 @@ package repo
 
 import (
 	"context"
+	"olivine/internal/repo/object"
 	"sync"
 )
 
@@ -18,10 +19,13 @@ var _ Storage = &StorageMock{}
 //
 //		// make and configure a mocked Storage
 //		mockedStorage := &StorageMock{
-//			GetFunc: func(ctx context.Context, k string) (string, error) {
+//			GetFunc: func(ctx context.Context, k string) (object.Object, error) {
 //				panic("mock out the Get method")
 //			},
-//			SetFunc: func(ctx context.Context, k string, v string) error {
+//			PruneFunc: func(contextMoqParam context.Context) error {
+//				panic("mock out the Prune method")
+//			},
+//			SetFunc: func(ctx context.Context, param SetParam) error {
 //				panic("mock out the Set method")
 //			},
 //		}
@@ -32,10 +36,13 @@ var _ Storage = &StorageMock{}
 //	}
 type StorageMock struct {
 	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, k string) (string, error)
+	GetFunc func(ctx context.Context, k string) (object.Object, error)
+
+	// PruneFunc mocks the Prune method.
+	PruneFunc func(contextMoqParam context.Context) error
 
 	// SetFunc mocks the Set method.
-	SetFunc func(ctx context.Context, k string, v string) error
+	SetFunc func(ctx context.Context, param SetParam) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -46,22 +53,26 @@ type StorageMock struct {
 			// K is the k argument value.
 			K string
 		}
+		// Prune holds details about calls to the Prune method.
+		Prune []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+		}
 		// Set holds details about calls to the Set method.
 		Set []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// K is the k argument value.
-			K string
-			// V is the v argument value.
-			V string
+			// Param is the param argument value.
+			Param SetParam
 		}
 	}
-	lockGet sync.RWMutex
-	lockSet sync.RWMutex
+	lockGet   sync.RWMutex
+	lockPrune sync.RWMutex
+	lockSet   sync.RWMutex
 }
 
 // Get calls GetFunc.
-func (mock *StorageMock) Get(ctx context.Context, k string) (string, error) {
+func (mock *StorageMock) Get(ctx context.Context, k string) (object.Object, error) {
 	if mock.GetFunc == nil {
 		panic("StorageMock.GetFunc: method is nil but Storage.Get was just called")
 	}
@@ -96,24 +107,54 @@ func (mock *StorageMock) GetCalls() []struct {
 	return calls
 }
 
+// Prune calls PruneFunc.
+func (mock *StorageMock) Prune(contextMoqParam context.Context) error {
+	if mock.PruneFunc == nil {
+		panic("StorageMock.PruneFunc: method is nil but Storage.Prune was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+	}{
+		ContextMoqParam: contextMoqParam,
+	}
+	mock.lockPrune.Lock()
+	mock.calls.Prune = append(mock.calls.Prune, callInfo)
+	mock.lockPrune.Unlock()
+	return mock.PruneFunc(contextMoqParam)
+}
+
+// PruneCalls gets all the calls that were made to Prune.
+// Check the length with:
+//
+//	len(mockedStorage.PruneCalls())
+func (mock *StorageMock) PruneCalls() []struct {
+	ContextMoqParam context.Context
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+	}
+	mock.lockPrune.RLock()
+	calls = mock.calls.Prune
+	mock.lockPrune.RUnlock()
+	return calls
+}
+
 // Set calls SetFunc.
-func (mock *StorageMock) Set(ctx context.Context, k string, v string) error {
+func (mock *StorageMock) Set(ctx context.Context, param SetParam) error {
 	if mock.SetFunc == nil {
 		panic("StorageMock.SetFunc: method is nil but Storage.Set was just called")
 	}
 	callInfo := struct {
-		Ctx context.Context
-		K   string
-		V   string
+		Ctx   context.Context
+		Param SetParam
 	}{
-		Ctx: ctx,
-		K:   k,
-		V:   v,
+		Ctx:   ctx,
+		Param: param,
 	}
 	mock.lockSet.Lock()
 	mock.calls.Set = append(mock.calls.Set, callInfo)
 	mock.lockSet.Unlock()
-	return mock.SetFunc(ctx, k, v)
+	return mock.SetFunc(ctx, param)
 }
 
 // SetCalls gets all the calls that were made to Set.
@@ -121,14 +162,12 @@ func (mock *StorageMock) Set(ctx context.Context, k string, v string) error {
 //
 //	len(mockedStorage.SetCalls())
 func (mock *StorageMock) SetCalls() []struct {
-	Ctx context.Context
-	K   string
-	V   string
+	Ctx   context.Context
+	Param SetParam
 } {
 	var calls []struct {
-		Ctx context.Context
-		K   string
-		V   string
+		Ctx   context.Context
+		Param SetParam
 	}
 	mock.lockSet.RLock()
 	calls = mock.calls.Set

@@ -2,6 +2,7 @@ package resp
 
 import (
 	"bytes"
+	"slices"
 	"strconv"
 )
 
@@ -143,6 +144,13 @@ func NewNullArray() Array {
 
 func NewArray(data []Value) Array {
 	return Array{data: data}
+}
+
+func (v Array) Clone() Array {
+	return Array{
+		null: v.null,
+		data: slices.Clone(v.data),
+	}
 }
 
 func (v Array) Marshal() []byte {

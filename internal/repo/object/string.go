@@ -1,17 +1,24 @@
 package object
 
-import "time"
+import (
+	"strconv"
+	"time"
+
+	"github.com/zeebo/xxh3"
+)
 
 type String struct {
 	*base
 
-	val string
+	val    string
+	digest uint64
 }
 
 func NewString(k, v string, expiresAt *time.Time) *String {
 	return &String{
-		val:  v,
-		base: &base{key: k, expiresAt: expiresAt},
+		val:    v,
+		digest: xxh3.HashString(v),
+		base:   &base{key: k, expiresAt: expiresAt},
 	}
 }
 
@@ -21,4 +28,13 @@ func (str *String) String() string {
 
 func (str *String) Equals(v string) bool {
 	return str.String() == v
+}
+
+func (str *String) EqualsDigest(v string) bool {
+	n, err := strconv.ParseUint(v, 10, 0)
+	if err != nil {
+		return false
+	}
+
+	return n == str.digest
 }

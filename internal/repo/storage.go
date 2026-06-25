@@ -137,9 +137,23 @@ func (s *mapStorage) checkStringCond(param SetStringParam, current object.Object
 			return errors.New("data match")
 		}
 	case CondIFDEQ:
-		return errors.New("unimplemented")
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if !str.EqualsDigest(param.CondValue()) {
+			return errors.New("data match")
+		}
 	case CondIFDNE:
-		return errors.New("unimplemented")
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if str.EqualsDigest(param.CondValue()) {
+			return errors.New("data match")
+		}
 	default:
 		panic(fmt.Sprintf("unknow condition type: %d", param.CondType()))
 	}

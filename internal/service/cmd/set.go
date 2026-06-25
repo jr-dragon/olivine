@@ -162,7 +162,7 @@ func (c *Set) parse(cmd *resp.Command) (*setparams, error) {
 		return nil, fmt.Errorf("%w: invalid SET syntax", ErrSyntax)
 	}
 
-	if p.keepTTL {
+	if p.exp != nil && !p.keepTTL {
 		cmd.UpdateAOF(expirationOptionIndex+1, resp.NewBulkString("PXAT"))
 		cmd.UpdateAOF(expirationOptionIndex+2, resp.NewBulkString(strconv.FormatInt(p.exp.UnixMilli(), 10)))
 	}

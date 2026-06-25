@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	
+
 	"olivine/internal/service"
 	"olivine/pkg/resp"
 )
@@ -19,7 +19,7 @@ func NewAOFMiddleware(aof service.AOF) Middleware {
 				return nil, fmt.Errorf("%w: failed to write AOF: %w", ErrServer, err)
 			}
 
-			return ret, nil
+			return ret, err
 		}
 	}
 }

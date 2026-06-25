@@ -19,10 +19,6 @@ func (str *String) String() string {
 	return str.val
 }
 
-func (str *String) Equals(obj Object) bool {
-	if s, ok := obj.(*String); !ok {
-		return false
-	} else {
-		return s.String() == str.String()
-	}
+func (str *String) Equals(v string) bool {
+	return str.String() == v
 }

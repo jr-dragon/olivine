@@ -77,7 +77,7 @@ func (s *mapStorage) setString(param SetStringParam) error {
 	obj := param.Obj()
 
 	cur, exists := s.storage[obj.Key()]
-	if err := s.checkStringCond(param, obj, cur, exists); err != nil {
+	if err := s.checkStringCond(param, cur, exists); err != nil {
 		return fmt.Errorf("%w: %w", ErrCondMismatch, err)
 	}
 	if param.GetCurrent() {
@@ -96,7 +96,7 @@ func (s *mapStorage) setString(param SetStringParam) error {
 	return nil
 }
 
-func (s *mapStorage) checkStringCond(param SetStringParam, give, current object.Object, exists bool) error {
+func (s *mapStorage) checkStringCond(param SetStringParam, current object.Object, exists bool) error {
 	switch param.CondType() {
 	case 0:
 		return nil
@@ -114,7 +114,7 @@ func (s *mapStorage) checkStringCond(param SetStringParam, give, current object.
 		}
 		if str, ok := current.(*object.String); !ok {
 			return ErrTypeMismatch
-		} else if !str.Equals(give) {
+		} else if !str.Equals(param.CondValue()) {
 			return errors.New("data mismatch")
 		}
 	case CondIFNE:
@@ -123,7 +123,7 @@ func (s *mapStorage) checkStringCond(param SetStringParam, give, current object.
 		}
 		if str, ok := current.(*object.String); !ok {
 			return ErrTypeMismatch
-		} else if str.Equals(give) {
+		} else if str.Equals(param.CondValue()) {
 			return errors.New("data match")
 		}
 	case CondIFDEQ:

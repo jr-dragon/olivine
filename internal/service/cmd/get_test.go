@@ -58,7 +58,7 @@ func TestGet_Exec(t *testing.T) {
 				resp.NewBulkString("GET"),
 				resp.NewBulkString("foo"),
 			})),
-			expect: []byte("-ERR Operation against a key holding the wrong kind of value\r\n"),
+			expect: []byte("-ERR validation failed: Operation against a key holding the wrong kind of value\r\n"),
 		},
 		{
 			name: "found",

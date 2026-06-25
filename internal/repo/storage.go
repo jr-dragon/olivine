@@ -77,6 +77,12 @@ func (s *mapStorage) setString(param SetStringParam) error {
 	obj := param.Obj()
 
 	cur, exists := s.storage[obj.Key()]
+	if exists && cur != nil && time.Now().After(*cur.ExpiresAt()) {
+		delete(s.storage, obj.Key())
+		cur = nil
+		exists = false
+	}
+	
 	if param.GetCurrent() {
 		if !exists {
 			param.SetCurrent(nil)

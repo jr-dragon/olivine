@@ -30,10 +30,6 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	if err != nil {
 		return resp.NewSimpleError(err), err
 	}
-	if param.GetCurrent() || param.CondType() != 0 || param.KeepTTL() {
-		err := fmt.Errorf("%w: unimplemented", ErrSyntax)
-		return resp.NewSimpleError(err), err
-	}
 
 	if err := c.storage.Set(ctx, param); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)

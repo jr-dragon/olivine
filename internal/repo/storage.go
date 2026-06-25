@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
+	ErrNotFound     = errors.New("not found")
+	ErrTypeMismatch = errors.New("type mismatch")
+	ErrCondMismatch = errors.New("condition mismatch")
 )
 
 //go:generate go tool moq -rm -out storage_mock.go . Storage
@@ -72,7 +74,65 @@ func (s *mapStorage) setString(param SetStringParam) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.storage[param.Obj().Key()] = param.Obj()
+	obj := param.Obj()
+
+	cur, exists := s.storage[obj.Key()]
+	if err := s.checkStringCond(param, obj, cur, exists); err != nil {
+		return fmt.Errorf("%w: %w", ErrCondMismatch, err)
+	}
+	if param.GetCurrent() {
+		if curstr, ok := cur.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else {
+			param.SetCurrent(curstr)
+		}
+	}
+	if param.KeepTTL() {
+		obj.SetExpiresAt(cur.ExpiresAt())
+	}
+
+	s.storage[obj.Key()] = obj
+
+	return nil
+}
+
+func (s *mapStorage) checkStringCond(param SetStringParam, give, current object.Object, exists bool) error {
+	switch param.CondType() {
+	case 0:
+		return nil
+	case CondNX:
+		if exists {
+			return errors.New("data found")
+		}
+	case CondXX:
+		if !exists {
+			return errors.New("data not found")
+		}
+	case CondIFEQ:
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if !str.Equals(give) {
+			return errors.New("data mismatch")
+		}
+	case CondIFNE:
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if str.Equals(give) {
+			return errors.New("data match")
+		}
+	case CondIFDEQ:
+		return errors.New("unimplemented")
+	case CondIFDNE:
+		return errors.New("unimplemented")
+	default:
+		panic(fmt.Sprintf("unknow condition type: %d", param.CondType()))
+	}
 
 	return nil
 }

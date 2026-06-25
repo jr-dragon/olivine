@@ -91,7 +91,7 @@ func (s *mapStorage) setString(param SetStringParam) error {
 	if err := s.checkStringCond(param, cur, exists); err != nil {
 		return fmt.Errorf("%w: %w", ErrCondMismatch, err)
 	}
-	if param.KeepTTL() {
+	if param.KeepTTL() && cur != nil {
 		obj.SetExpiresAt(cur.ExpiresAt())
 	}
 

@@ -77,15 +77,19 @@ func (s *mapStorage) setString(param SetStringParam) error {
 	obj := param.Obj()
 
 	cur, exists := s.storage[obj.Key()]
+	if param.GetCurrent() {
+		if !exists {
+			param.SetCurrent(nil)
+		} else {
+			if curstr, ok := cur.(*object.String); !ok {
+				return ErrTypeMismatch
+			} else {
+				param.SetCurrent(curstr)
+			}
+		}
+	}
 	if err := s.checkStringCond(param, cur, exists); err != nil {
 		return fmt.Errorf("%w: %w", ErrCondMismatch, err)
-	}
-	if param.GetCurrent() {
-		if curstr, ok := cur.(*object.String); !ok {
-			return ErrTypeMismatch
-		} else {
-			param.SetCurrent(curstr)
-		}
 	}
 	if param.KeepTTL() {
 		obj.SetExpiresAt(cur.ExpiresAt())

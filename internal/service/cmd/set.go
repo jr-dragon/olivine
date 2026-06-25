@@ -41,6 +41,13 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
 
+	if param.GetCurrent() {
+		if param.cur == nil {
+			return nil, nil
+		}
+		return resp.NewBulkString(param.cur.String()), nil
+	}
+
 	return resp.SimpleString("OK"), nil
 }
 

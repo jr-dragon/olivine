@@ -26,23 +26,23 @@ func (c *Set) Command() string {
 }
 
 func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
-	parsed, err := c.parse(cmd)
+	param, err := c.parse(cmd)
 	if err != nil {
 		return resp.NewSimpleError(err), err
 	}
-	if parsed.Get || parsed.Cond.Typ != 0 || (parsed.Exp != nil && parsed.Exp.IsZero()) {
+	if param.GetCurrent() || param.CondType() != 0 || param.KeepTTL() {
 		err := fmt.Errorf("%w: unimplemented", ErrSyntax)
 		return resp.NewSimpleError(err), err
 	}
 
-	if err := c.storage.Set(ctx, parsed); err != nil {
+	if err := c.storage.Set(ctx, param); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
 
 	return resp.SimpleString("OK"), nil
 }
 
-func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
+func (c *Set) parse(cmd *resp.Command) (*setparams, error) {
 	const (
 		awaitingKey = iota
 		awaitingValue
@@ -55,66 +55,71 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 		invalid
 	)
 
-	state := awaitingKey
-	var conditionType int
-	var expirationOption string
-	var expirationOptionIndex int
+	var (
+		expirationOption      string
+		expirationOptionIndex int
+	)
 
+	var p setparams
+
+	state := awaitingKey
 	for i, arg := range cmd.Args() {
 		switch state {
 		case awaitingKey:
-			p.K = arg.String()
+			p.key = arg.String()
 			state = awaitingValue
 		case awaitingValue:
-			p.V = arg.String()
+			p.val = arg.String()
 			state = awaitingOption
 		case awaitingOption:
 			switch strings.ToUpper(arg.String()) {
 			case "NX":
-				p.Cond.Typ = nx
+				p.condType = repo.CondNX
 				state = awaitingPostConditionOption
 			case "XX":
-				p.Cond.Typ = xx
+				p.condType = repo.CondXX
 				state = awaitingPostConditionOption
 			case "IFEQ":
-				conditionType = ifeq
+				p.condType = repo.CondIFEQ
 				state = awaitingConditionValue
 			case "IFNE":
-				conditionType = ifne
+				p.condType = repo.CondIFNE
 				state = awaitingConditionValue
 			case "IFDEQ":
-				conditionType = ifdeq
+				p.condType = repo.CondIFDEQ
 				state = awaitingConditionValue
 			case "IFDNE":
-				conditionType = ifdne
+				p.condType = repo.CondIFDNE
 				state = awaitingConditionValue
 			case "GET":
-				p.Get = true
+				p.get = true
 				state = awaitingPostGetOption
 			case "EX", "PX", "EXAT", "PXAT":
 				expirationOption = strings.ToUpper(arg.String())
 				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
-				p.Exp = new(time.Time)
+				p.keepTTL = true
+				p.exp = &time.Time{}
 				state = done
 			default:
 				state = invalid
 			}
 		case awaitingConditionValue:
-			p.Cond = parseSetCond{Typ: conditionType, Val: arg.String()}
+			p.condValue = arg.String()
 			state = awaitingPostConditionOption
 		case awaitingPostConditionOption:
 			switch strings.ToUpper(arg.String()) {
 			case "GET":
-				p.Get = true
+				p.get = true
 				state = awaitingPostGetOption
 			case "EX", "PX", "EXAT", "PXAT":
 				expirationOption = strings.ToUpper(arg.String())
 				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
-				p.Exp = new(time.Time)
+				p.keepTTL = true
+				p.exp = &time.Time{}
 				state = done
 			default:
 				state = invalid
@@ -126,16 +131,18 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
-				p.Exp = new(time.Time)
+				p.keepTTL = true
+				p.exp = &time.Time{}
 				state = done
 			default:
 				state = invalid
 			}
 		case awaitingExpirationValue:
-			p.Exp, err = parseExpiration(expirationOption, arg.String())
+			exp, err := parseExpiration(expirationOption, arg.String())
 			if err != nil {
-				return parsedSet{}, fmt.Errorf("%w: %w", ErrSyntax, err)
+				return nil, fmt.Errorf("%w: %w", ErrSyntax, err)
 			}
+			p.exp = &exp
 			state = done
 		case done:
 			state = invalid
@@ -143,18 +150,18 @@ func (c *Set) parse(cmd *resp.Command) (p parsedSet, err error) {
 	}
 
 	if state != awaitingOption && state != awaitingPostConditionOption && state != awaitingPostGetOption && state != done {
-		return parsedSet{}, fmt.Errorf("%w: invalid SET syntax", ErrSyntax)
+		return nil, fmt.Errorf("%w: invalid SET syntax", ErrSyntax)
 	}
 
-	if p.Exp != nil && !p.Exp.IsZero() {
+	if p.keepTTL {
 		cmd.UpdateAOF(expirationOptionIndex+1, resp.NewBulkString("PXAT"))
-		cmd.UpdateAOF(expirationOptionIndex+2, resp.NewBulkString(strconv.FormatInt(p.Exp.UnixMilli(), 10)))
+		cmd.UpdateAOF(expirationOptionIndex+2, resp.NewBulkString(strconv.FormatInt(p.exp.UnixMilli(), 10)))
 	}
 
-	return p, nil
+	return &p, nil
 }
 
-func parseExpiration(option, value string) (*time.Time, error) {
+func parseExpiration(option, value string) (time.Time, error) {
 	switch option {
 	case "EX", "PX":
 		unit := "s"
@@ -164,26 +171,26 @@ func parseExpiration(option, value string) (*time.Time, error) {
 
 		duration, err := parseDuration(value, unit)
 		if err != nil {
-			return nil, err
+			return time.Time{}, err
 		}
 
-		return new(time.Now().Add(duration)), nil
+		return time.Now().Add(duration), nil
 	case "EXAT", "PXAT":
 		timestamp, err := strconv.Atoi(value)
 		if err != nil {
-			return nil, err
+			return time.Time{}, err
 		}
 		if timestamp <= 0 {
-			return nil, errors.New("invalid expire time")
+			return time.Time{}, errors.New("invalid expire time")
 		}
 		if option == "EXAT" {
-			return new(time.Unix(int64(timestamp), 0)), nil
+			return time.Unix(int64(timestamp), 0), nil
 		}
 
-		return new(time.UnixMilli(int64(timestamp))), nil
+		return time.UnixMilli(int64(timestamp)), nil
 	}
 
-	return nil, fmt.Errorf("unknown expiration option %q", option)
+	return time.Time{}, fmt.Errorf("unknown expiration option %q", option)
 }
 
 func parseDuration(s, unit string) (time.Duration, error) {
@@ -204,30 +211,49 @@ func parseDuration(s, unit string) (time.Duration, error) {
 	}
 }
 
-const (
-	nx    = iota + 1 // set value only not exists
-	xx               // set value only exists
-	ifeq             // set only value == cond.Val
-	ifne             // set only value != cond.Val
-	ifdeq            // set only XXH3(value) == cond.Val
-	ifdne            // set only XXH3(value) != cond.Val
-)
+type setparams struct {
+	key string
+	val string
 
-type parseSetCond struct {
-	Typ int
-	Val string
+	// NX|XX|IFEQ|IFNE|IFDEQ|IFDNE
+	condType  repo.Cond
+	condValue string
+
+	// GET
+	get bool
+	cur *object.String
+
+	// EX|PX|EXAT|PXAT
+	exp     *time.Time
+	keepTTL bool
 }
 
-type parsedSet struct {
-	K    string
-	V    string
-	Cond parseSetCond
-	Get  bool
-	Exp  *time.Time
+var _ repo.SetStringParam = &setparams{}
+
+func (p *setparams) Obj() object.Object {
+	return object.NewString(p.key, p.val, p.exp)
 }
 
-var _ repo.SetParam = parsedSet{}
+func (p *setparams) CondType() repo.Cond {
+	return p.condType
+}
 
-func (parsed parsedSet) Obj() object.Object {
-	return object.NewString(parsed.K, parsed.V, parsed.Exp)
+func (p *setparams) CondValue() string {
+	return p.condValue
+}
+
+func (p *setparams) ExpiresAt() *time.Time {
+	return p.exp
+}
+
+func (p *setparams) KeepTTL() bool {
+	return p.keepTTL
+}
+
+func (p *setparams) GetCurrent() bool {
+	return p.get
+}
+
+func (p *setparams) SetCurrent(cur *object.String) {
+	p.cur = cur
 }

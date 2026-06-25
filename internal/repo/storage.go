@@ -25,6 +25,29 @@ type SetParam interface {
 	Obj() object.Object
 }
 
+type Cond int
+
+const (
+	CondNX    Cond = iota + 1 // set value only not exists
+	CondXX                    // set value only exists
+	CondIFEQ                  // set only value == cond.Val
+	CondIFNE                  // set only value != cond.Val
+	CondIFDEQ                 // set only XXH3(value) == cond.Val
+	CondIFDNE                 // set only XXH3(value) != cond.Val
+)
+
+type SetStringParam interface {
+	SetParam
+
+	CondType() Cond
+	CondValue() string
+	ExpiresAt() *time.Time
+	KeepTTL() bool
+
+	GetCurrent() bool
+	SetCurrent(*object.String)
+}
+
 func NewStorage() Storage {
 	s := mapStorage{}
 	s.storage = make(map[string]object.Object)
@@ -38,10 +61,19 @@ type mapStorage struct {
 }
 
 func (s *mapStorage) Set(_ context.Context, param SetParam) error {
+	if strparam, ok := param.(SetStringParam); ok {
+		return s.setString(strparam)
+	}
+
+	return errors.New("unimplemented")
+}
+
+func (s *mapStorage) setString(param SetStringParam) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.storage[param.Obj().Key()] = param.Obj()
+
 	return nil
 }
 

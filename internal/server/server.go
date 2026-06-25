@@ -93,7 +93,7 @@ func (s *simpleSrv) serve(conn net.Conn) {
 			if s.inShutdown.Load() || errors.Is(err, io.EOF) {
 				return
 			}
-			if !errors.Is(err, ErrClient) {
+			if errors.Is(err, ErrServer) {
 				slog.Error("failed to serve resp", slog.Any("error", err))
 				return
 			}

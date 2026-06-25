@@ -33,10 +33,10 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 
 	if err := c.storage.Set(ctx, param); err != nil {
 		if errors.Is(err, repo.ErrTypeMismatch) {
-			return resp.NewSimpleError(ErrWrongType), nil
+			return resp.NewSimpleError(ErrWrongType), err
 		}
 		if errors.Is(err, repo.ErrCondMismatch) {
-			return nil, nil
+			return nil, err
 		}
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}

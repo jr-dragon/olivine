@@ -8,5 +8,7 @@ import (
 var (
 	ErrValidation = errors.New("validation failed")
 	ErrSyntax     = fmt.Errorf("%w: syntax error", ErrValidation)
-	ErrStorage    = errors.New("storage failed")
+	ErrWrongType  = fmt.Errorf("%w: Operation against a key holding the wrong kind of value", ErrValidation)
+
+	ErrStorage = errors.New("storage failed")
 )

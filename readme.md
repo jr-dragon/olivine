@@ -8,7 +8,7 @@ Inspired from [Build Redis From Scratch](https://www.build-redis-from-scratch.de
 
 There're notes for this repository, read issues with `documentation` label.
 
-Chapter 1: Hello World
+Chapter 1: The basic
 
 - [Day 0: Motivation and Overview](https://github.com/jr-dragon/olivine/issues/1)
 - [Day 1: Project initialization](https://github.com/jr-dragon/olivine/issues/2)
@@ -18,13 +18,16 @@ Chapter 1: Hello World
 - [Day 6: PING, SET and GET](https://github.com/jr-dragon/olivine/issues/6)
 - [Day 7: Data Persistence](https://github.com/jr-dragon/olivine/issues/7)
 
-Chapter 2: (WIP)
+Chapter 2: The advance
 
 - [Day 8: Testing](https://github.com/jr-dragon/olivine/issues/8)
 - [Day 9, 10: Graceful Shutdown](https://github.com/jr-dragon/olivine/issues/10)
 - [Day 11: AOF Fsync and Config](https://github.com/jr-dragon/olivine/issues/11)
 - [Day 12: Dependency Injection](https://github.com/jr-dragon/olivine/issues/12)
 - [Day 13: Key Expiration](https://github.com/jr-dragon/olivine/issues/13)
+- [Day 14: SET with exists KEYs](https://github.com/jr-dragon/olivine/issues/14)
+
+Chapter 3: (WIP)
 
 You can checkout to `d1/*`, `d2/*`, ... branches to review code changes for notes. The `git diff` helps a lot.
 

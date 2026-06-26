@@ -44,7 +44,7 @@ func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 	if str, ok := v.(*object.String); ok {
 		ret = resp.NewBulkString(str.String())
 	} else {
-		ret = resp.NewSimpleError(errors.New("Operation against a key holding the wrong kind of value"))
+		ret = resp.NewSimpleError(ErrWrongType)
 	}
 
 	return ret, nil

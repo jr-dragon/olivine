@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
+	ErrNotFound     = errors.New("not found")
+	ErrTypeMismatch = errors.New("type mismatch")
+	ErrCondMismatch = errors.New("condition mismatch")
 )
 
 //go:generate go tool moq -rm -out storage_mock.go . Storage
@@ -23,6 +25,29 @@ type Storage interface {
 
 type SetParam interface {
 	Obj() object.Object
+}
+
+type Cond int
+
+const (
+	CondNX    Cond = iota + 1 // set value only not exists
+	CondXX                    // set value only exists
+	CondIFEQ                  // set only value == cond.Val
+	CondIFNE                  // set only value != cond.Val
+	CondIFDEQ                 // set only XXH3(value) == cond.Val
+	CondIFDNE                 // set only XXH3(value) != cond.Val
+)
+
+type SetStringParam interface {
+	SetParam
+
+	CondType() Cond
+	CondValue() string
+	ExpiresAt() *time.Time
+	KeepTTL() bool
+
+	GetCurrent() bool
+	SetCurrent(*object.String)
 }
 
 func NewStorage() Storage {
@@ -38,10 +63,101 @@ type mapStorage struct {
 }
 
 func (s *mapStorage) Set(_ context.Context, param SetParam) error {
+	if strparam, ok := param.(SetStringParam); ok {
+		return s.setString(strparam)
+	}
+
+	return errors.New("unimplemented")
+}
+
+func (s *mapStorage) setString(param SetStringParam) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.storage[param.Obj().Key()] = param.Obj()
+	obj := param.Obj()
+
+	cur, exists := s.storage[obj.Key()]
+	if cur != nil && cur.Expired() {
+		delete(s.storage, obj.Key())
+		cur = nil
+		exists = false
+	}
+
+	if param.GetCurrent() {
+		if !exists {
+			param.SetCurrent(nil)
+		} else {
+			if curstr, ok := cur.(*object.String); !ok {
+				return ErrTypeMismatch
+			} else {
+				param.SetCurrent(curstr)
+			}
+		}
+	}
+	if err := s.checkStringCond(param, cur, exists); err != nil {
+		return fmt.Errorf("%w: %w", ErrCondMismatch, err)
+	}
+	if param.KeepTTL() && cur != nil {
+		obj.SetExpiresAt(cur.ExpiresAt())
+	}
+
+	s.storage[obj.Key()] = obj
+
+	return nil
+}
+
+func (s *mapStorage) checkStringCond(param SetStringParam, current object.Object, exists bool) error {
+	switch param.CondType() {
+	case 0:
+		return nil
+	case CondNX:
+		if exists {
+			return errors.New("data found")
+		}
+	case CondXX:
+		if !exists {
+			return errors.New("data not found")
+		}
+	case CondIFEQ:
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if !str.Equals(param.CondValue()) {
+			return errors.New("data mismatch")
+		}
+	case CondIFNE:
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if str.Equals(param.CondValue()) {
+			return errors.New("data match")
+		}
+	case CondIFDEQ:
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if !str.EqualsDigest(param.CondValue()) {
+			return errors.New("data match")
+		}
+	case CondIFDNE:
+		if !exists {
+			return errors.New("data not found")
+		}
+		if str, ok := current.(*object.String); !ok {
+			return ErrTypeMismatch
+		} else if str.EqualsDigest(param.CondValue()) {
+			return errors.New("data match")
+		}
+	default:
+		panic(fmt.Sprintf("unknow condition type: %d", param.CondType()))
+	}
+
 	return nil
 }
 

@@ -155,14 +155,15 @@ func TestSet_Exec(t *testing.T) {
 
 func TestSet_parse(t *testing.T) {
 	testcases := []struct {
-		name         string
-		args         []resp.Value
-		wantCond     parseSetCond
-		wantGet      bool
-		wantExp      *time.Time
-		wantExpAfter time.Duration
-		wantKeepTTL  bool
-		wantErr      error
+		name          string
+		args          []resp.Value
+		wantCondType  repo.Cond
+		wantCondValue string
+		wantGet       bool
+		wantExp       *time.Time
+		wantExpAfter  time.Duration
+		wantKeepTTL   bool
+		wantErr       error
 	}{
 		{
 			name: "without options",
@@ -176,7 +177,7 @@ func TestSet_parse(t *testing.T) {
 				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
 				resp.NewBulkString("NX"), resp.NewBulkString("GET"), resp.NewBulkString("EX"), resp.NewBulkString("10"),
 			},
-			wantCond:     parseSetCond{Typ: nx},
+			wantCondType: repo.CondNX,
 			wantGet:      true,
 			wantExpAfter: 10 * time.Second,
 		},
@@ -186,8 +187,9 @@ func TestSet_parse(t *testing.T) {
 				resp.NewBulkString("SET"), resp.NewBulkString("key"), resp.NewBulkString("value"),
 				resp.NewBulkString("IFEQ"), resp.NewBulkString("expected"), resp.NewBulkString("PXAT"), resp.NewBulkString("1700000000123"),
 			},
-			wantCond: parseSetCond{Typ: ifeq, Val: "expected"},
-			wantExp:  new(time.UnixMilli(1_700_000_000_123)),
+			wantCondType:  repo.CondIFEQ,
+			wantCondValue: "expected",
+			wantExp:       new(time.UnixMilli(1_700_000_000_123)),
 		},
 		{
 			name: "KEEPTTL",
@@ -254,15 +256,18 @@ func TestSet_parse(t *testing.T) {
 				if err != nil {
 					return
 				}
-				if got.Cond != tc.wantCond {
-					t.Errorf("parse() condition = %#v, want %#v", got.Cond, tc.wantCond)
+				if got.CondType() != tc.wantCondType {
+					t.Errorf("parse() condition type = %d, want %d", got.CondType(), tc.wantCondType)
 				}
-				if got.Get != tc.wantGet {
-					t.Errorf("parse() GET = %t, want %t", got.Get, tc.wantGet)
+				if got.CondValue() != tc.wantCondValue {
+					t.Errorf("parse condition value = %s, want %s", got.CondValue(), tc.wantCondValue)
+				}
+				if got.GetCurrent() != tc.wantGet {
+					t.Errorf("parse() GET = %t, want %t", got.GetCurrent(), tc.wantGet)
 				}
 				if tc.wantKeepTTL {
-					if got.Exp == nil || !got.Exp.IsZero() {
-						t.Errorf("parse() expiration = %v, want non-nil zero time", got.Exp)
+					if got.ExpiresAt() == nil || !got.ExpiresAt().IsZero() {
+						t.Errorf("parse() expiration = %v, want non-nil zero time", got.ExpiresAt())
 					}
 					return
 				}
@@ -270,12 +275,12 @@ func TestSet_parse(t *testing.T) {
 				if tc.wantExpAfter != 0 {
 					wantExp = new(time.Now().Add(tc.wantExpAfter))
 				}
-				if got.Exp == nil || wantExp == nil {
-					if got.Exp != wantExp {
-						t.Errorf("parse() expiration = %v, want %v", got.Exp, wantExp)
+				if got.ExpiresAt() == nil || wantExp == nil {
+					if got.ExpiresAt() != wantExp {
+						t.Errorf("parse() expiration = %v, want %v", got.ExpiresAt(), wantExp)
 					}
-				} else if !got.Exp.Equal(*wantExp) {
-					t.Errorf("parse() expiration = %v, want %v", got.Exp, wantExp)
+				} else if !got.ExpiresAt().Equal(*wantExp) {
+					t.Errorf("parse() expiration = %v, want %v", got.ExpiresAt(), wantExp)
 				}
 			})
 		})

@@ -69,11 +69,24 @@ func (s *simpleSrv) ListenAndServe() (err error) {
 			return err
 		}
 
-		s.mu.Lock()
-		s.conns[conn] = struct{}{}
-		s.mu.Unlock()
-		s.wg.Go(func() { s.serve(conn) })
+		if !s.trackConn(conn) {
+			_ = conn.Close()
+			return ErrServerClosed
+		}
 	}
+}
+
+func (s *simpleSrv) trackConn(conn net.Conn) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.inShutdown.Load() {
+		return false
+	}
+
+	s.conns[conn] = struct{}{}
+	s.wg.Go(func() { s.serve(conn) })
+	return true
 }
 
 func (s *simpleSrv) serve(conn net.Conn) {

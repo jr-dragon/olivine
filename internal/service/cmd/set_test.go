@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -151,6 +152,100 @@ func TestSet_Exec(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestSet_ExecMarshalAOF(t *testing.T) {
+	t.Run("missing key with KEEPTTL keeps original command", func(t *testing.T) {
+		storage := repo.NewStorage()
+		cmd := resp.NewTestCommand(resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("value"),
+			resp.NewBulkString("KEEPTTL"),
+		}))
+
+		if _, err := NewSet(storage).Exec(t.Context(), cmd); err != nil {
+			t.Fatalf("Exec() error = %v", err)
+		}
+
+		want := resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("value"),
+			resp.NewBulkString("KEEPTTL"),
+		}).Marshal()
+		if got := cmd.MarshalAOF(); !slices.Equal(got, want) {
+			t.Errorf("MarshalAOF() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("existing key without ttl with KEEPTTL keeps original command", func(t *testing.T) {
+		storage := repo.NewStorage()
+		seed := resp.NewTestCommand(resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("old"),
+		}))
+		if _, err := NewSet(storage).Exec(t.Context(), seed); err != nil {
+			t.Fatalf("seed Exec() error = %v", err)
+		}
+
+		cmd := resp.NewTestCommand(resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("new"),
+			resp.NewBulkString("KEEPTTL"),
+		}))
+		if _, err := NewSet(storage).Exec(t.Context(), cmd); err != nil {
+			t.Fatalf("Exec() error = %v", err)
+		}
+
+		want := resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("new"),
+			resp.NewBulkString("KEEPTTL"),
+		}).Marshal()
+		if got := cmd.MarshalAOF(); !slices.Equal(got, want) {
+			t.Errorf("MarshalAOF() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("existing key with KEEPTTL writes PXAT", func(t *testing.T) {
+		storage := repo.NewStorage()
+		expiresAt := strconv.FormatInt(time.Now().Add(time.Hour).UnixMilli(), 10)
+		seed := resp.NewTestCommand(resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("old"),
+			resp.NewBulkString("PXAT"),
+			resp.NewBulkString(expiresAt),
+		}))
+		if _, err := NewSet(storage).Exec(t.Context(), seed); err != nil {
+			t.Fatalf("seed Exec() error = %v", err)
+		}
+
+		cmd := resp.NewTestCommand(resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("new"),
+			resp.NewBulkString("KEEPTTL"),
+		}))
+		if _, err := NewSet(storage).Exec(t.Context(), cmd); err != nil {
+			t.Fatalf("Exec() error = %v", err)
+		}
+
+		want := resp.NewArray([]resp.Value{
+			resp.NewBulkString("SET"),
+			resp.NewBulkString("key"),
+			resp.NewBulkString("new"),
+			resp.NewBulkString("PXAT"),
+			resp.NewBulkString(expiresAt),
+		}).Marshal()
+		if got := cmd.MarshalAOF(); !slices.Equal(got, want) {
+			t.Errorf("MarshalAOF() = %q, want %q", got, want)
+		}
+	})
 }
 
 func TestSet_parse(t *testing.T) {

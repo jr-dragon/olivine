@@ -94,7 +94,11 @@ func (cmd *Command) Dirty() bool {
 }
 
 func (cmd *Command) UpdateAOF(i int, v Value) {
-	cmd.aof.data[i] = v
+	if i < len(cmd.aof.data) {
+		cmd.aof.data[i] = v
+	} else {
+		cmd.aof.data = append(cmd.aof.data, v)
+	}
 }
 
 func (cmd *Command) MarshalAOF() []byte {

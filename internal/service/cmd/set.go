@@ -41,6 +41,16 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
 
+	if param.KeepTTL() && param.cur != nil {
+		param.exp = param.cur.ExpiresAt()
+	}
+
+	if param.ExpiresAt() != nil &&
+		!param.ExpiresAt().IsZero() { // param.exp is set to &time.Time{} as initializing with KEEPTTL is set
+		cmd.UpdateAOF(param.expargIdx-1, resp.NewBulkString("PXAT"))
+		cmd.UpdateAOF(param.expargIdx, resp.NewBulkString(strconv.FormatInt(param.ExpiresAt().UnixMilli(), 10)))
+	}
+
 	if param.GetCurrent() {
 		if param.cur == nil {
 			return nil, nil
@@ -65,8 +75,7 @@ func (c *Set) parse(cmd *resp.Command) (*setparams, error) {
 	)
 
 	var (
-		expirationOption      string
-		expirationOptionIndex int
+		expirationOption string
 	)
 
 	var p setparams
@@ -104,10 +113,11 @@ func (c *Set) parse(cmd *resp.Command) (*setparams, error) {
 				p.get = true
 				state = awaitingPostGetOption
 			case "EX", "PX", "EXAT", "PXAT":
+				p.expargIdx = i + 2
 				expirationOption = strings.ToUpper(arg.String())
-				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
+				p.expargIdx = i + 2
 				p.keepTTL = true
 				p.exp = &time.Time{}
 				state = done
@@ -123,10 +133,11 @@ func (c *Set) parse(cmd *resp.Command) (*setparams, error) {
 				p.get = true
 				state = awaitingPostGetOption
 			case "EX", "PX", "EXAT", "PXAT":
+				p.expargIdx = i + 2
 				expirationOption = strings.ToUpper(arg.String())
-				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
+				p.expargIdx = i + 2
 				p.keepTTL = true
 				p.exp = &time.Time{}
 				state = done
@@ -136,10 +147,11 @@ func (c *Set) parse(cmd *resp.Command) (*setparams, error) {
 		case awaitingPostGetOption:
 			switch strings.ToUpper(arg.String()) {
 			case "EX", "PX", "EXAT", "PXAT":
+				p.expargIdx = i + 2
 				expirationOption = strings.ToUpper(arg.String())
-				expirationOptionIndex = i
 				state = awaitingExpirationValue
 			case "KEEPTTL":
+				p.expargIdx = i + 2
 				p.keepTTL = true
 				p.exp = &time.Time{}
 				state = done
@@ -160,11 +172,6 @@ func (c *Set) parse(cmd *resp.Command) (*setparams, error) {
 
 	if state != awaitingOption && state != awaitingPostConditionOption && state != awaitingPostGetOption && state != done {
 		return nil, fmt.Errorf("%w: invalid SET syntax", ErrSyntax)
-	}
-
-	if p.exp != nil && !p.keepTTL {
-		cmd.UpdateAOF(expirationOptionIndex+1, resp.NewBulkString("PXAT"))
-		cmd.UpdateAOF(expirationOptionIndex+2, resp.NewBulkString(strconv.FormatInt(p.exp.UnixMilli(), 10)))
 	}
 
 	return &p, nil
@@ -235,6 +242,8 @@ type setparams struct {
 	// EX|PX|EXAT|PXAT
 	exp     *time.Time
 	keepTTL bool
+
+	expargIdx int
 }
 
 var _ repo.SetStringParam = &setparams{}

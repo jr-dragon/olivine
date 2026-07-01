@@ -83,7 +83,7 @@ func (s *mapStorage) setString(param SetStringParam) error {
 		exists = false
 	}
 
-	if param.GetCurrent() {
+	if param.GetCurrent() || param.KeepTTL() {
 		if !exists {
 			param.SetCurrent(nil)
 		} else {

@@ -76,8 +76,12 @@ func (r *Reader) readBulkString() (BulkString, error) {
 	}
 
 	// Drop tailing "\r\n" from reader.
-	r.rd.ReadByte()
-	r.rd.ReadByte()
+	if cr, err := r.rd.ReadByte(); err != nil || cr != '\r' {
+		return BulkString{}, errors.New("unexpected sentinel")
+	}
+	if nl, err := r.rd.ReadByte(); err != nil || nl != '\n' {
+		return BulkString{}, errors.New("unexpected sentinel")
+	}
 
 	return BulkString{data: buf}, nil
 }
@@ -95,14 +99,19 @@ func (r *Reader) readLine() ([]byte, error) {
 	var buf bytes.Buffer
 
 	for {
-		data, err := r.rd.ReadBytes('\n')
+		data, err := r.rd.ReadBytes('\r')
 		if err != nil {
 			return nil, err
 		}
 
 		buf.Write(data)
-		if data[len(data)-2] == '\r' {
-			return buf.Bytes()[:buf.Len()-2], nil
+		b, err := r.rd.ReadByte()
+		if err != nil {
+			return nil, err
 		}
+		if b == '\n' {
+			return buf.Bytes()[:buf.Len()-1], nil
+		}
+		buf.WriteByte(b)
 	}
 }

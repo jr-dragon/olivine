@@ -26,7 +26,7 @@ type Command struct {
 func ReadCommand(rd *Reader) (*Command, error) {
 	v, err := rd.Read()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrProtocol, err)
 	}
 
 	arr, ok := v.(Array)

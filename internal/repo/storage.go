@@ -129,7 +129,7 @@ func (s *mapStorage) checkStringCond(param SetStringParam, current object.Object
 		}
 	case CondIFNE:
 		if !exists {
-			return errors.New("data not found")
+			return nil // ignore when current doesn't exist
 		}
 		if str, ok := current.(*object.String); !ok {
 			return ErrTypeMismatch
@@ -147,7 +147,7 @@ func (s *mapStorage) checkStringCond(param SetStringParam, current object.Object
 		}
 	case CondIFDNE:
 		if !exists {
-			return errors.New("data not found")
+			return nil // ignore when current doesn't exist
 		}
 		if str, ok := current.(*object.String); !ok {
 			return ErrTypeMismatch

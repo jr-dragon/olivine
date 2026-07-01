@@ -39,6 +39,26 @@ func TestReadCommand(t *testing.T) {
 			expect: ErrProtocol,
 		},
 		{
+			name:   "bulk string:missing sentinel",
+			input:  "$3\r\nabc",
+			expect: ErrProtocol,
+		},
+		{
+			name:   "bulk string: unexpected sentinel",
+			input:  "$3\r\nabcXX",
+			expect: ErrProtocol,
+		},
+		{
+			name:   "array:missing sentinel",
+			input:  "*2\r\n$3\r\nGET\r\n$3\r\nfoo",
+			expect: ErrProtocol,
+		},
+		{
+			name:   "array:unexpected sentinel",
+			input:  "*2\r\n$3\r\nGET\r\n$3\r\nfooXY",
+			expect: ErrProtocol,
+		},
+		{
 			name:   "valid command",
 			input:  "*2\r\n$4\r\nPING\r\n$7\r\nmessage\r\n",
 			expect: []byte("*2\r\n$4\r\nPING\r\n$7\r\nmessage\r\n"),
@@ -51,7 +71,7 @@ func TestReadCommand(t *testing.T) {
 
 			if experr, ok := tc.expect.(error); ok {
 				if err == nil {
-					t.Errorf("expect '%s', got nil", experr.Error())
+					t.Errorf("expect '%s', got nil with %s", experr.Error(), cmd.Marshal())
 				} else if !errors.Is(err, experr) {
 					t.Errorf("expect '%s', got '%s'", experr.Error(), err.Error())
 				}

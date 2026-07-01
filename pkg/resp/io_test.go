@@ -30,6 +30,11 @@ func TestReader_readLine(t *testing.T) {
 			input:  "foo\nbar\r\n",
 			expect: []byte("foo\nbar"),
 		},
+		{
+			name: "string with carriage return",
+			input: "foo\rbar\r\n",
+			expect: []byte("foo\rbar"),
+		},
 	}
 
 	for _, tc := range testcases {

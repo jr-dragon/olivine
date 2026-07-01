@@ -36,6 +36,9 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 			return resp.NewSimpleError(ErrWrongType), err
 		}
 		if errors.Is(err, repo.ErrCondMismatch) {
+			if param.GetCurrent() && param.cur != nil {
+				return resp.NewBulkString(param.cur.String()), err
+			}
 			return nil, err
 		}
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)

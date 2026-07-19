@@ -54,7 +54,7 @@ func (s *simpleSrv) RestoreFromDisk() error {
 }
 
 func (s *simpleSrv) ListenAndServe() (err error) {
-	if s.listener, err = net.Listen("tcp", ":16879"); err != nil {
+	if s.listener, err = net.Listen("tcp", ":16379"); err != nil {
 		return
 	}
 

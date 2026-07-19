@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/mazrean/kessoku"
+	"net/http"
 	"olivine/internal/data"
 	"olivine/internal/repo"
 	"olivine/internal/server"
@@ -41,7 +42,7 @@ func NewApp(config *data.Config) (*App, error) {
 	})).Fn()(config, aof, handler)
 	server0 := kessoku.Bind[server.Server](kessoku.Provide(server.NewServer)).Fn()(handler, restorer)
 	app := kessoku.Provide(func(cfg *data.Config, worker service.Worker, server server.Server) *App {
-		return &App{cfg: cfg, worker: worker, server: server}
+		return &App{cfg: cfg, worker: worker, server: server, httpsrv: &http.Server{Addr: "localhost:6060"}}
 	}).Fn()(config, worker, server0)
 	return app, nil
 }

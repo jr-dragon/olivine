@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -23,8 +24,9 @@ const (
 type App struct {
 	cfg *data.Config
 
-	worker service.Worker
-	server server.Server
+	worker  service.Worker
+	server  server.Server
+	httpsrv *http.Server
 }
 
 func (app *App) Run() error {
@@ -53,6 +55,14 @@ func (app *App) Run() error {
 		return nil
 	})
 
+	g.Go(func() error {
+		slog.Info("starting web server")
+		if err := app.httpsrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	})
+
 	errch := make(chan error, 1)
 	go func() { errch <- g.Wait() }()
 
@@ -64,6 +74,9 @@ func (app *App) Run() error {
 		defer cancel()
 
 		if err := app.server.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
+		if err := app.httpsrv.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
 

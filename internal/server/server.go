@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"io"
@@ -99,6 +100,8 @@ func (s *simpleSrv) serve(conn net.Conn) {
 	}()
 
 	rd := resp.NewReader(conn)
+	wr := bufio.NewWriter(conn)
+	defer wr.Flush()
 
 	for {
 		ret, err := s.handler.ServeRESP(context.Background(), rd)
@@ -115,13 +118,24 @@ func (s *simpleSrv) serve(conn net.Conn) {
 			ret = resp.NewNullBulkString()
 		}
 
-		if _, err := conn.Write(ret.Marshal()); err != nil {
+		if _, err := wr.Write(ret.Marshal()); err != nil {
 			if s.inShutdown.Load() {
 				return
 			}
 
 			slog.Error("failed to write to conn:", slog.Any("error", err))
 			return
+		}
+
+		if rd.Buffered() == 0 {
+			if err := wr.Flush(); err != nil {
+				if s.inShutdown.Load() {
+					return
+				}
+
+				slog.Error("failed to flush", slog.Any("error", err))
+				return
+			}
 		}
 	}
 }

@@ -1,1 +1,4 @@
 database.aof
+
+bin/
+scripts/out/

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -23,8 +24,9 @@ const (
 type App struct {
 	cfg *data.Config
 
-	worker service.Worker
-	server server.Server
+	worker  service.Worker
+	server  server.Server
+	httpsrv *http.Server
 }
 
 func (app *App) Run() error {
@@ -46,8 +48,16 @@ func (app *App) Run() error {
 	})
 
 	g.Go(func() error {
-		slog.Info("starting olivine server")
+		slog.Info("starting olivine server on :16379")
 		if err := app.server.ListenAndServe(); err != nil && !errors.Is(err, server.ErrServerClosed) {
+			return err
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		slog.Info("starting web server on 127.0.0.1:6060")
+		if err := app.httpsrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 		return nil
@@ -64,6 +74,9 @@ func (app *App) Run() error {
 		defer cancel()
 
 		if err := app.server.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
+		if err := app.httpsrv.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
 

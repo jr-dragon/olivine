@@ -1,6 +1,9 @@
 package main
 
 import (
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/mazrean/kessoku"
 
 	"olivine/internal/data"
@@ -53,6 +56,9 @@ var _ = kessoku.Inject[*App](
 
 			worker: worker,
 			server: server,
+			httpsrv: &http.Server{
+				Addr: "localhost:6060",
+			},
 		}
 	}),
 )

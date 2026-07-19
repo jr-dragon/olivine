@@ -37,6 +37,10 @@ func (r *Reader) Read() (Value, error) {
 	}
 }
 
+func (r *Reader) Buffered() int {
+	return r.rd.Buffered()
+}
+
 func (r *Reader) readArray() (Array, error) {
 	sz, err := r.readInt()
 	if err != nil {

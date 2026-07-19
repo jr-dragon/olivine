@@ -53,7 +53,7 @@ func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Va
 		}
 	}
 
-	slog.Info("Read RESP command:", slog.Any("command", cmd))
+	slog.Debug("Read RESP command:", slog.Any("command", cmd))
 
 	return h.serve(ctx, cmd)
 }

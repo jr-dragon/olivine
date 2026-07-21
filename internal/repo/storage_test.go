@@ -69,6 +69,14 @@ func TestMapStorage_SetString(t *testing.T) {
 func TestMapStorage_TryPrune(t *testing.T) {
 	const sampleSize = 10
 
+	t.Run("empty storage", func(t *testing.T) {
+		s := NewStorage().(*mapStorage)
+
+		if got := s.tryPrune(); !got {
+			t.Errorf("tryPrune() = %t, want true", got)
+		}
+	})
+
 	testcases := []struct {
 		name         string
 		expiredCount int
@@ -120,6 +128,28 @@ func TestMapStorage_TryPrune(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMapStorage_TryPruneConcurrentSet(t *testing.T) {
+	s := NewStorage().(*mapStorage)
+	ctx := context.Background()
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for i := range 1_000 {
+			key := fmt.Sprintf("key-%d", i%100)
+			if err := s.Set(ctx, &setStringTestParam{key: key, val: "value"}); err != nil {
+				t.Errorf("Set(%q) error = %v", key, err)
+				return
+			}
+		}
+	}()
+
+	for range 1_000 {
+		s.tryPrune()
+	}
+	<-done
 }
 
 func storageLength(s *mapStorage) int {

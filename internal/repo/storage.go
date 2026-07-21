@@ -200,33 +200,39 @@ func (s *mapStorage) Prune(ctx context.Context) error {
 }
 
 func (s *mapStorage) tryPrune() bool {
-	if len(s.storage) == 0 {
-		return true
-	}
-
 	const sampleSize = 10
 
-	sampled := 0
-	expired := 0
 	now := time.Now()
-	slot := rand.Int() & (lockStripeCount - 1)
+	start := rand.Int() & (lockStripeCount - 1)
 
-	for k, v := range s.storage[slot] {
-		if sampled == sampleSize {
-			break
-		}
+	for offset := range lockStripeCount {
+		slot := (start + offset) & (lockStripeCount - 1)
+		s.stripes[slot].Lock()
 
-		sampled++
-		if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
-			slot := s.stripe(v.Key())
-			s.stripes[slot].Lock()
-			delete(s.storage[slot], k)
+		if len(s.storage[slot]) == 0 {
 			s.stripes[slot].Unlock()
-			expired++
+			continue
 		}
+
+		sampled := 0
+		expired := 0
+		for k, v := range s.storage[slot] {
+			if sampled == sampleSize {
+				break
+			}
+
+			sampled++
+			if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
+				delete(s.storage[slot], k)
+				expired++
+			}
+		}
+		s.stripes[slot].Unlock()
+
+		return expired*4 < sampled
 	}
 
-	return expired*4 < sampled
+	return true
 }
 
 func (s *mapStorage) stripe(k string) uint64 {

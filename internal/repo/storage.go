@@ -62,7 +62,7 @@ func NewStorage() Storage {
 	return &s
 }
 
-const lockStripeCount = 256
+const lockStripeCount = 16
 
 type mapStorage struct {
 	storage [lockStripeCount]map[string]object.Object

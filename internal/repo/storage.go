@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
 	"olivine/internal/repo/object"
+
+	"github.com/zeebo/xxh3"
 )
 
 var (
@@ -52,14 +55,18 @@ type SetStringParam interface {
 
 func NewStorage() Storage {
 	s := mapStorage{}
-	s.storage = make(map[string]object.Object)
+	for i := range lockStripeCount {
+		s.storage[i] = make(map[string]object.Object)
+	}
 
 	return &s
 }
 
+const lockStripeCount = 16
+
 type mapStorage struct {
-	storage map[string]object.Object
-	mu      sync.Mutex
+	storage [lockStripeCount]map[string]object.Object
+	stripes [lockStripeCount]sync.Mutex
 }
 
 func (s *mapStorage) Set(_ context.Context, param SetParam) error {
@@ -71,14 +78,15 @@ func (s *mapStorage) Set(_ context.Context, param SetParam) error {
 }
 
 func (s *mapStorage) setString(param SetStringParam) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	obj := param.Obj()
 
-	cur, exists := s.storage[obj.Key()]
+	slot := s.stripe(obj.Key())
+	s.stripes[slot].Lock()
+	defer s.stripes[slot].Unlock()
+
+	cur, exists := s.storage[slot][obj.Key()]
 	if cur != nil && cur.Expired() {
-		delete(s.storage, obj.Key())
+		delete(s.storage[slot], obj.Key())
 		cur = nil
 		exists = false
 	}
@@ -101,7 +109,7 @@ func (s *mapStorage) setString(param SetStringParam) error {
 		obj.SetExpiresAt(cur.ExpiresAt())
 	}
 
-	s.storage[obj.Key()] = obj
+	s.storage[slot][obj.Key()] = obj
 
 	return nil
 }
@@ -162,15 +170,16 @@ func (s *mapStorage) checkStringCond(param SetStringParam, current object.Object
 }
 
 func (s *mapStorage) Get(_ context.Context, k string) (v object.Object, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	slot := s.stripe(k)
+	s.stripes[slot].Lock()
+	defer s.stripes[slot].Unlock()
 
 	var ok bool
-	if v, ok = s.storage[k]; !ok {
+	if v, ok = s.storage[slot][k]; !ok {
 		return nil, fmt.Errorf("%w: miss", ErrNotFound)
 	}
 	if v.ExpiresAt() != nil && time.Now().After(*v.ExpiresAt()) {
-		delete(s.storage, k) // remove key from storage when expired
+		delete(s.storage[slot], k) // remove key from storage when expired
 		return nil, fmt.Errorf("%w: expired", ErrNotFound)
 	}
 
@@ -191,30 +200,46 @@ func (s *mapStorage) Prune(ctx context.Context) error {
 }
 
 func (s *mapStorage) tryPrune() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	now := time.Now()
+	start := rand.Int() & (lockStripeCount - 1)
 
-	if len(s.storage) == 0 {
-		return true
+	for offset := range lockStripeCount {
+		slot := (start + offset) & (lockStripeCount - 1)
+		if found, stop := s.tryPruneStripe(slot, now); found {
+			return stop
+		}
+	}
+
+	return true
+}
+
+func (s *mapStorage) tryPruneStripe(slot int, now time.Time) (found, stop bool) {
+	s.stripes[slot].Lock()
+	defer s.stripes[slot].Unlock()
+
+	if len(s.storage[slot]) == 0 {
+		return false, false
 	}
 
 	const sampleSize = 10
 
 	sampled := 0
 	expired := 0
-	now := time.Now()
-
-	for k, v := range s.storage {
+	for k, v := range s.storage[slot] {
 		if sampled == sampleSize {
 			break
 		}
 
 		sampled++
 		if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
-			delete(s.storage, k)
+			delete(s.storage[slot], k)
 			expired++
 		}
 	}
 
-	return expired*4 < sampled
+	return true, expired*4 < sampled
+}
+
+func (s *mapStorage) stripe(k string) uint64 {
+	return xxh3.HashString(k) & (lockStripeCount - 1)
 }

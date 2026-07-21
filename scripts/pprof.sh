@@ -27,7 +27,7 @@ cleanup() {
 }
 
 usage() {
-  echo "Usage: $0 profile [redis-benchmark flags...]" >&2
+  echo "Usage: $0 {profile|block|mutex} [redis-benchmark flags...]" >&2
 }
 
 wait_for_pprof() {
@@ -45,12 +45,29 @@ wait_for_pprof() {
   return 1
 }
 
-if [[ $# -lt 1 || "$1" != "profile" ]]; then
+if [[ $# -lt 1 ]]; then
   usage
   exit 2
 fi
 
+profile_type="$1"
 shift
+
+server_env=""
+case "$profile_type" in
+  profile)
+    ;;
+  block)
+    server_env="PPROF_BLOCK_RATE=1"
+    ;;
+  mutex)
+    server_env="PPROF_MUTEX_FRAC=1"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
 
 if ! command -v redis-benchmark >/dev/null 2>&1; then
   echo "redis-benchmark is required but was not found in PATH." >&2
@@ -69,14 +86,27 @@ make gen
 make build
 
 mkdir -p "$output_dir"
-./bin/olivine &
+if [[ -n "$server_env" ]]; then
+  env "$server_env" ./bin/olivine &
+else
+  ./bin/olivine &
+fi
 olivine_pid=$!
 
 wait_for_pprof
 
-redis-benchmark "$@" -p 16379 &
-benchmark_pid=$!
+datestr=$(date +%Y-%m-%d_%H:%M:%S)
+profile_path="$output_dir/$datestr.$profile_type"
 
-profile_path="$output_dir/$(date +%Y-%m-%d_%H:%M:%S).profile"
-curl --fail --show-error --output "$profile_path" \
-  http://localhost:6060/debug/pprof/profile
+if [[ "$profile_type" == "profile" ]]; then
+  redis-benchmark "$@" -p 16379 &
+  benchmark_pid=$!
+
+  curl --fail --show-error --output "$profile_path" \
+    "http://localhost:6060/debug/pprof/$profile_type"
+else
+  redis-benchmark "$@" -p 16379
+
+  curl --fail --show-error --output "$profile_path" \
+    "http://localhost:6060/debug/pprof/$profile_type"
+fi

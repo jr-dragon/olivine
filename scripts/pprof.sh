@@ -53,15 +53,15 @@ fi
 profile_type="$1"
 shift
 
-server_env=()
+server_env=""
 case "$profile_type" in
   profile)
     ;;
   block)
-    server_env=(PPROF_BLOCK_RATE=1)
+    server_env="PPROF_BLOCK_RATE=1"
     ;;
   mutex)
-    server_env=(PPROF_MUTEX_FRAC=1)
+    server_env="PPROF_MUTEX_FRAC=1"
     ;;
   *)
     usage
@@ -86,7 +86,11 @@ make gen
 make build
 
 mkdir -p "$output_dir"
-env "${server_env[@]}" ./bin/olivine &
+if [[ -n "$server_env" ]]; then
+  env "$server_env" ./bin/olivine &
+else
+  ./bin/olivine &
+fi
 olivine_pid=$!
 
 wait_for_pprof

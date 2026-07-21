@@ -200,39 +200,44 @@ func (s *mapStorage) Prune(ctx context.Context) error {
 }
 
 func (s *mapStorage) tryPrune() bool {
-	const sampleSize = 10
-
 	now := time.Now()
 	start := rand.Int() & (lockStripeCount - 1)
 
 	for offset := range lockStripeCount {
 		slot := (start + offset) & (lockStripeCount - 1)
-		s.stripes[slot].Lock()
-
-		if len(s.storage[slot]) == 0 {
-			s.stripes[slot].Unlock()
-			continue
+		if found, stop := s.tryPruneStripe(slot, now); found {
+			return stop
 		}
-
-		sampled := 0
-		expired := 0
-		for k, v := range s.storage[slot] {
-			if sampled == sampleSize {
-				break
-			}
-
-			sampled++
-			if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
-				delete(s.storage[slot], k)
-				expired++
-			}
-		}
-		s.stripes[slot].Unlock()
-
-		return expired*4 < sampled
 	}
 
 	return true
+}
+
+func (s *mapStorage) tryPruneStripe(slot int, now time.Time) (found, stop bool) {
+	s.stripes[slot].Lock()
+	defer s.stripes[slot].Unlock()
+
+	if len(s.storage[slot]) == 0 {
+		return false, false
+	}
+
+	const sampleSize = 10
+
+	sampled := 0
+	expired := 0
+	for k, v := range s.storage[slot] {
+		if sampled == sampleSize {
+			break
+		}
+
+		sampled++
+		if v.ExpiresAt() != nil && now.After(*v.ExpiresAt()) {
+			delete(s.storage[slot], k)
+			expired++
+		}
+	}
+
+	return true, expired*4 < sampled
 }
 
 func (s *mapStorage) stripe(k string) uint64 {

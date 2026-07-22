@@ -20,10 +20,8 @@ var (
 )
 
 type Command struct {
-	raw  []BulkString
-	aof  []BulkString
-	cmd  BulkString
-	args []BulkString
+	raw []BulkString
+	aof []BulkString
 }
 
 func ReadCommand(rd *Reader) (*Command, error) {
@@ -36,9 +34,7 @@ func ReadCommand(rd *Reader) (*Command, error) {
 	}
 
 	return &Command{
-		raw:  values,
-		cmd:  values[0],
-		args: values[1:],
+		raw: values,
 	}, nil
 }
 
@@ -48,27 +44,18 @@ func NewTestCommand(v Array) *Command {
 		strs = append(strs, s.(BulkString))
 	}
 
-	var args []BulkString
-	if len(strs) == 1 {
-		args = make([]BulkString, 0)
-	} else {
-		args = strs[1:]
-	}
-
 	return &Command{
-		raw:  strs,
-		aof:  slices.Clone(strs),
-		cmd:  strs[0],
-		args: args,
+		raw: strs,
+		aof: slices.Clone(strs),
 	}
 }
 
 func (cmd *Command) Command() string {
-	return strings.ToUpper(string(cmd.cmd.data))
+	return strings.ToUpper(string(cmd.raw[0].data))
 }
 
 func (cmd *Command) Args() []BulkString {
-	return cmd.args
+	return cmd.raw[1:]
 }
 
 func (cmd *Command) Dirty() bool {

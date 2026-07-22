@@ -37,7 +37,6 @@ func ReadCommand(rd *Reader) (*Command, error) {
 
 	return &Command{
 		raw:  values,
-		aof:  slices.Clone(values),
 		cmd:  values[0],
 		args: values[1:],
 	}, nil
@@ -78,6 +77,10 @@ func (cmd *Command) Dirty() bool {
 }
 
 func (cmd *Command) UpdateAOF(i int, v BulkString) {
+	if cmd.aof == nil {
+		cmd.aof = slices.Clone(cmd.raw)
+	}
+
 	if i < len(cmd.aof) {
 		cmd.aof[i] = v
 	} else {
@@ -86,6 +89,9 @@ func (cmd *Command) UpdateAOF(i int, v BulkString) {
 }
 
 func (cmd *Command) MarshalAOF() []byte {
+	if cmd.aof == nil {
+		return marshalCommand(cmd.raw)
+	}
 	return marshalCommand(cmd.aof)
 }
 

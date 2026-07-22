@@ -113,6 +113,10 @@ func (s *simpleSrv) serve(conn net.Conn) {
 				slog.Error("failed to serve resp", slog.Any("error", err))
 				return
 			}
+			if errors.Is(err, resp.ErrProtocol) {
+				slog.Error("failed to parse RESP", slog.Any("error", err))
+				return
+			}
 		}
 		if ret == nil {
 			ret = resp.NewNullBulkString()

@@ -36,6 +36,42 @@ func (r *Reader) Read() (Value, error) {
 	}
 }
 
+func (r *Reader) ReadCommand() ([]BulkString, error) {
+	t, err := r.rd.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+	if t != MAGIC_ARRAY {
+		return nil, fmt.Errorf("expected array, got %c", t)
+	}
+
+	sz, err := r.readInt()
+	if err != nil {
+		return nil, err
+	}
+	if sz < 0 {
+		return nil, nil
+	}
+
+	values := make([]BulkString, sz)
+	for i := range values {
+		t, err := r.rd.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+		if t != MAGIC_BULK_STRING {
+			return nil, fmt.Errorf("element [%d] expected bulk string, got %c", i, t)
+		}
+
+		values[i], err = r.readBulkString()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return values, nil
+}
+
 func (r *Reader) Buffered() int {
 	return r.rd.Buffered()
 }

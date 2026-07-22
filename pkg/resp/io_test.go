@@ -197,3 +197,22 @@ func TestReader_Read(t *testing.T) {
 		})
 	}
 }
+
+func TestReader_ReadCommand(t *testing.T) {
+	rd := NewReader(bytes.NewBufferString("*2\r\n$4\r\nPING\r\n$7\r\nmessage\r\n"))
+
+	values, err := rd.ReadCommand()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"PING", "message"}
+	if len(values) != len(want) {
+		t.Fatalf("ReadCommand() returned %d values, want %d", len(values), len(want))
+	}
+	for i := range values {
+		if got := values[i].String(); got != want[i] {
+			t.Errorf("ReadCommand()[%d] = %q, want %q", i, got, want[i])
+		}
+	}
+}

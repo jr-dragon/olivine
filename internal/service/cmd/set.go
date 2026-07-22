@@ -61,7 +61,7 @@ func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 		return resp.NewBulkString(param.cur.String()), nil
 	}
 
-	return resp.SimpleString("OK"), nil
+	return resp.OKValue, nil
 }
 
 func (c *Set) parse(cmd *resp.Command) (*setparams, error) {

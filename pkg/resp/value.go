@@ -19,6 +19,8 @@ type Value interface {
 	Marshal() []byte
 }
 
+var OKValue = SimpleString("OK")
+
 type SimpleString []byte
 
 func (v SimpleString) Marshal() []byte {

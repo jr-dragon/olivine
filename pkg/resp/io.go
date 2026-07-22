@@ -13,7 +13,9 @@ var (
 )
 
 type Reader struct {
-	rd *bufio.Reader
+	rd       *bufio.Reader
+	valuebuf [8]BulkString
+	bytesbuf [1 << 12]byte
 }
 
 func NewReader(rd io.Reader) *Reader {
@@ -53,7 +55,13 @@ func (r *Reader) ReadCommand() ([]BulkString, error) {
 		return nil, nil
 	}
 
-	values := make([]BulkString, sz)
+	var values []BulkString
+	if sz <= len(r.valuebuf) {
+		clear(r.valuebuf[:])
+		values = r.valuebuf[:sz:sz]
+	} else {
+		values = make([]BulkString, sz)
+	}
 	for i := range values {
 		t, err := r.rd.ReadByte()
 		if err != nil {
@@ -109,7 +117,12 @@ func (r *Reader) readBulkString() (BulkString, error) {
 		return BulkString{null: true}, nil
 	}
 
-	buf := make([]byte, sz)
+	var buf []byte
+	if sz <= len(r.bytesbuf) {
+		buf = r.bytesbuf[:sz:sz]
+	} else {
+		buf = make([]byte, sz)
+	}
 	if _, err := io.ReadFull(r.rd, buf); err != nil {
 		return BulkString{}, err
 	}
@@ -122,7 +135,7 @@ func (r *Reader) readBulkString() (BulkString, error) {
 		return BulkString{}, errors.New("unexpected sentinel")
 	}
 
-	return BulkString{data: buf}, nil
+	return BulkString{data: string(buf)}, nil
 }
 
 func (r *Reader) readInt() (int, error) {

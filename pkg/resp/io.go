@@ -2,7 +2,6 @@ package resp
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -100,22 +99,31 @@ func (r *Reader) readInt() (int, error) {
 }
 
 func (r *Reader) readLine() ([]byte, error) {
-	var buf bytes.Buffer
+	var fragments []byte
 
 	for {
-		data, err := r.rd.ReadBytes('\r')
+		data, err := r.rd.ReadSlice('\n')
+		if errors.Is(err, bufio.ErrBufferFull) {
+			fragments = append(fragments, data...)
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
 
-		buf.Write(data)
-		b, err := r.rd.ReadByte()
-		if err != nil {
-			return nil, err
+		if len(data) == 1 && data[0] == '\n' && len(fragments) > 0 && fragments[len(fragments)-1] == '\r' {
+			return fragments[:len(fragments)-1], nil
 		}
-		if b == '\n' {
-			return buf.Bytes()[:buf.Len()-1], nil
+
+		if len(data) >= 2 && data[len(data)-2] == '\r' {
+			data = data[:len(data)-2]
+			if len(fragments) == 0 {
+				return data, nil
+			}
+
+			return append(fragments, data...), nil
 		}
-		buf.WriteByte(b)
+
+		fragments = append(fragments, data...)
 	}
 }

@@ -27,7 +27,7 @@ cleanup() {
 }
 
 usage() {
-  echo "Usage: $0 {profile|block|mutex} [redis-benchmark flags...]" >&2
+  echo "Usage: $0 {profile|block|mutex|allocs|heap} [redis-benchmark flags...]" >&2
 }
 
 wait_for_pprof() {
@@ -55,7 +55,7 @@ shift
 
 server_env=""
 case "$profile_type" in
-  profile)
+  profile|allocs|heap)
     ;;
   block)
     server_env="PPROF_BLOCK_RATE=1"

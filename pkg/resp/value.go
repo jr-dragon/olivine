@@ -19,8 +19,6 @@ type Value interface {
 	Marshal() []byte
 }
 
-var OKValue = SimpleString("OK")
-
 type SimpleString []byte
 
 func (v SimpleString) Marshal() []byte {
@@ -55,6 +53,14 @@ func (s SimpleString) copyMarshaler() []byte {
 	copy(marshaled[1:], s)
 
 	return marshaled
+}
+
+var OKValue = ok{}
+
+type ok struct{}
+
+func (ok) Marshal() []byte {
+	return []byte("+OK\r\n")
 }
 
 type SimpleError struct {

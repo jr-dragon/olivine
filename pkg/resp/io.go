@@ -2,7 +2,6 @@ package resp
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +13,9 @@ var (
 )
 
 type Reader struct {
-	rd *bufio.Reader
+	rd       *bufio.Reader
+	valuebuf [8]BulkString
+	bytesbuf [1 << 12]byte
 }
 
 func NewReader(rd io.Reader) *Reader {
@@ -35,6 +36,48 @@ func (r *Reader) Read() (Value, error) {
 	default:
 		return nil, fmt.Errorf("%w: %c", ErrUnknownType, t)
 	}
+}
+
+func (r *Reader) ReadCommand() ([]BulkString, error) {
+	t, err := r.rd.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+	if t != MAGIC_ARRAY {
+		return nil, fmt.Errorf("expected array, got %c", t)
+	}
+
+	sz, err := r.readInt()
+	if err != nil {
+		return nil, err
+	}
+	if sz < 0 {
+		return nil, nil
+	}
+
+	var values []BulkString
+	if sz <= len(r.valuebuf) {
+		clear(r.valuebuf[:])
+		values = r.valuebuf[:sz:sz]
+	} else {
+		values = make([]BulkString, sz)
+	}
+	for i := range values {
+		t, err := r.rd.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+		if t != MAGIC_BULK_STRING {
+			return nil, fmt.Errorf("element [%d] expected bulk string, got %c", i, t)
+		}
+
+		values[i], err = r.readBulkString()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return values, nil
 }
 
 func (r *Reader) Buffered() int {
@@ -74,7 +117,12 @@ func (r *Reader) readBulkString() (BulkString, error) {
 		return BulkString{null: true}, nil
 	}
 
-	buf := make([]byte, sz)
+	var buf []byte
+	if sz <= len(r.bytesbuf) {
+		buf = r.bytesbuf[:sz:sz]
+	} else {
+		buf = make([]byte, sz)
+	}
 	if _, err := io.ReadFull(r.rd, buf); err != nil {
 		return BulkString{}, err
 	}
@@ -87,7 +135,7 @@ func (r *Reader) readBulkString() (BulkString, error) {
 		return BulkString{}, errors.New("unexpected sentinel")
 	}
 
-	return BulkString{data: buf}, nil
+	return BulkString{data: string(buf)}, nil
 }
 
 func (r *Reader) readInt() (int, error) {
@@ -100,22 +148,31 @@ func (r *Reader) readInt() (int, error) {
 }
 
 func (r *Reader) readLine() ([]byte, error) {
-	var buf bytes.Buffer
+	var fragments []byte
 
 	for {
-		data, err := r.rd.ReadBytes('\r')
+		data, err := r.rd.ReadSlice('\n')
+		if errors.Is(err, bufio.ErrBufferFull) {
+			fragments = append(fragments, data...)
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
 
-		buf.Write(data)
-		b, err := r.rd.ReadByte()
-		if err != nil {
-			return nil, err
+		if len(data) == 1 && data[0] == '\n' && len(fragments) > 0 && fragments[len(fragments)-1] == '\r' {
+			return fragments[:len(fragments)-1], nil
 		}
-		if b == '\n' {
-			return buf.Bytes()[:buf.Len()-1], nil
+
+		if len(data) >= 2 && data[len(data)-2] == '\r' {
+			data = data[:len(data)-2]
+			if len(fragments) == 0 {
+				return data, nil
+			}
+
+			return append(fragments, data...), nil
 		}
-		buf.WriteByte(b)
+
+		fragments = append(fragments, data...)
 	}
 }

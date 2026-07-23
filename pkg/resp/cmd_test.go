@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
+
+var benchmarkReadCommandResult *Command
 
 func TestReadCommand(t *testing.T) {
 	testcases := []struct {
@@ -81,5 +84,25 @@ func TestReadCommand(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func BenchmarkReadCommand(b *testing.B) {
+	const input = "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvalue\r\n"
+
+	source := strings.NewReader(input)
+	rd := NewReader(source)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		source.Reset(input)
+		rd.rd.Reset(source)
+
+		cmd, err := ReadCommand(rd)
+		if err != nil {
+			b.Fatal(err)
+		}
+		benchmarkReadCommandResult = cmd
 	}
 }

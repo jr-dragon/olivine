@@ -6,6 +6,7 @@ import (
 	"io"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -31,9 +32,19 @@ func TestReader_readLine(t *testing.T) {
 			expect: []byte("foo\nbar"),
 		},
 		{
-			name: "string with carriage return",
-			input: "foo\rbar\r\n",
+			name:   "string with carriage return",
+			input:  "foo\rbar\r\n",
 			expect: []byte("foo\rbar"),
+		},
+		{
+			name:   "line larger than reader buffer",
+			input:  strings.Repeat("a", 4096) + "\r\n",
+			expect: []byte(strings.Repeat("a", 4096)),
+		},
+		{
+			name:   "sentinel split across reader buffer",
+			input:  strings.Repeat("a", 4095) + "\r\n",
+			expect: []byte(strings.Repeat("a", 4095)),
 		},
 	}
 
@@ -51,6 +62,40 @@ func TestReader_readLine(t *testing.T) {
 			} else {
 				if !slices.Equal(tc.expect.([]byte), got) {
 					t.Errorf("expect '%s', got '%s'", tc.expect, got)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkReader_readLine(b *testing.B) {
+	testcases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "short",
+			input: "123\r\n",
+		},
+		{
+			name:  "larger than reader buffer",
+			input: strings.Repeat("1", 4096) + "\r\n",
+		},
+	}
+
+	for _, tc := range testcases {
+		b.Run(tc.name, func(b *testing.B) {
+			source := strings.NewReader(tc.input)
+			rd := NewReader(source)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				source.Reset(tc.input)
+				rd.rd.Reset(source)
+
+				if _, err := rd.readLine(); err != nil {
+					b.Fatal(err)
 				}
 			}
 		})
@@ -150,5 +195,24 @@ func TestReader_Read(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestReader_ReadCommand(t *testing.T) {
+	rd := NewReader(bytes.NewBufferString("*2\r\n$4\r\nPING\r\n$7\r\nmessage\r\n"))
+
+	values, err := rd.ReadCommand()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{"PING", "message"}
+	if len(values) != len(want) {
+		t.Fatalf("ReadCommand() returned %d values, want %d", len(values), len(want))
+	}
+	for i := range values {
+		if got := values[i].String(); got != want[i] {
+			t.Errorf("ReadCommand()[%d] = %q, want %q", i, got, want[i])
+		}
 	}
 }

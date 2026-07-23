@@ -31,6 +31,7 @@ Chapter 3: (WIP)
 
 - [Day 15: Profiling with pprof](https://github.com/jr-dragon/olivine/issues/15)
 - [Day 16: Profiling with mutex lock](https://github.com/jr-dragon/olivine/issues/16)
+- [Day 17: Profiling with memory](https://github.com/jr-dragon/olivine/issues/17)
 
 You can checkout to `d1/*`, `d2/*`, ... branches to review code changes for notes. The `git diff` helps a lot.
 

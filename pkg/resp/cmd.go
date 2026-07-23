@@ -1,8 +1,11 @@
 package resp
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -17,45 +20,21 @@ var (
 )
 
 type Command struct {
-	raw  Value
-	aof  Array
-	cmd  BulkString
-	args []BulkString
+	raw []BulkString
+	aof []BulkString
 }
 
 func ReadCommand(rd *Reader) (*Command, error) {
-	v, err := rd.Read()
+	values, err := rd.ReadCommand()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrProtocol, err)
 	}
-
-	arr, ok := v.(Array)
-	if !ok {
-		return nil, fmt.Errorf("%w: expected array, got %T(%+v)", ErrProtocol, v, v)
-	}
-	if arr.null || len(arr.data) == 0 {
+	if len(values) == 0 {
 		return nil, fmt.Errorf("%w: empty array", ErrProtocol)
 	}
 
-	cmd, ok := arr.data[0].(BulkString)
-	if !ok {
-		return nil, fmt.Errorf("%w: command expected bulk string, got %T(%+v)", ErrProtocol, arr.data[0], arr.data[0])
-	}
-
-	args := make([]BulkString, 0, len(arr.data)-1)
-	for i := range arr.data[1:] {
-		arg, ok := arr.data[i+1].(BulkString)
-		if !ok {
-			return nil, fmt.Errorf("%w: argument [%d] expected bulk string, got %T(%+v)", ErrProtocol, i, arr.data[i+1], arr.data[i+1])
-		}
-		args = append(args, arg)
-	}
-
 	return &Command{
-		raw:  v,
-		aof:  arr.Clone(),
-		cmd:  cmd,
-		args: args,
+		raw: values,
 	}, nil
 }
 
@@ -65,27 +44,18 @@ func NewTestCommand(v Array) *Command {
 		strs = append(strs, s.(BulkString))
 	}
 
-	var args []BulkString
-	if len(strs) == 1 {
-		args = make([]BulkString, 0)
-	} else {
-		args = strs[1:]
-	}
-
 	return &Command{
-		raw:  v,
-		aof:  v.Clone(),
-		cmd:  strs[0],
-		args: args,
+		raw: strs,
+		aof: slices.Clone(strs),
 	}
 }
 
 func (cmd *Command) Command() string {
-	return strings.ToUpper(string(cmd.cmd.data))
+	return strings.ToUpper(string(cmd.raw[0].data))
 }
 
 func (cmd *Command) Args() []BulkString {
-	return cmd.args
+	return cmd.raw[1:]
 }
 
 func (cmd *Command) Dirty() bool {
@@ -93,18 +63,38 @@ func (cmd *Command) Dirty() bool {
 	return isdirty
 }
 
-func (cmd *Command) UpdateAOF(i int, v Value) {
-	if i < len(cmd.aof.data) {
-		cmd.aof.data[i] = v
+func (cmd *Command) UpdateAOF(i int, v BulkString) {
+	if cmd.aof == nil {
+		cmd.aof = slices.Clone(cmd.raw)
+	}
+
+	if i < len(cmd.aof) {
+		cmd.aof[i] = v
 	} else {
-		cmd.aof.data = append(cmd.aof.data, v)
+		cmd.aof = append(cmd.aof, v)
 	}
 }
 
 func (cmd *Command) MarshalAOF() []byte {
-	return cmd.aof.Marshal()
+	if cmd.aof == nil {
+		return marshalCommand(cmd.raw)
+	}
+	return marshalCommand(cmd.aof)
 }
 
 func (cmd *Command) Marshal() []byte {
-	return cmd.raw.Marshal()
+	return marshalCommand(cmd.raw)
+}
+
+func marshalCommand(values []BulkString) []byte {
+	var buf bytes.Buffer
+
+	buf.WriteByte(MAGIC_ARRAY)
+	buf.WriteString(strconv.Itoa(len(values)))
+	buf.WriteString(SENTINEL)
+	for _, value := range values {
+		buf.Write(value.Marshal())
+	}
+
+	return buf.Bytes()
 }

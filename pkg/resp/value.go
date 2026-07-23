@@ -55,6 +55,14 @@ func (s SimpleString) copyMarshaler() []byte {
 	return marshaled
 }
 
+var OKValue = ok{}
+
+type ok struct{}
+
+func (ok) Marshal() []byte {
+	return []byte("+OK\r\n")
+}
+
 type SimpleError struct {
 	err error
 }
@@ -88,7 +96,7 @@ func (v Integer) Marshal() []byte {
 
 type BulkString struct {
 	null bool
-	data []byte
+	data string
 }
 
 func NewNullBulkString() BulkString {
@@ -96,7 +104,7 @@ func NewNullBulkString() BulkString {
 }
 
 func NewBulkString(s string) BulkString {
-	return BulkString{data: []byte(s)}
+	return BulkString{data: s}
 }
 
 func (v BulkString) Marshal() []byte {
@@ -124,7 +132,7 @@ func (v BulkString) Marshal() []byte {
 	buf.WriteRune(MAGIC_BULK_STRING)
 	buf.WriteString(strconv.Itoa(len(v.data)))
 	buf.WriteString(SENTINEL)
-	buf.Write(v.data)
+	buf.WriteString(v.data)
 	buf.WriteString(SENTINEL)
 	return buf.Bytes()
 }

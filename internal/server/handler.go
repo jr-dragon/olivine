@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"olivine/internal/service/cmd"
 	"olivine/pkg/resp"
@@ -52,8 +51,6 @@ func (h *simpleHandler) ServeRESP(ctx context.Context, rd *resp.Reader) (resp.Va
 			return nil, fmt.Errorf("%w: %w", ErrServer, err)
 		}
 	}
-
-	slog.Debug("Read RESP command:", slog.Any("command", cmd))
 
 	return h.serve(ctx, cmd)
 }

@@ -126,6 +126,9 @@ func (s *simpleSrv) serve(conn net.Conn) {
 			slog.Error("failed to write to conn:", slog.Any("error", err))
 			return
 		}
+		if errors.Is(err, resp.ErrProtocol) {
+			return
+		}
 
 		if rd.Buffered() == 0 {
 			if err := wr.Flush(); err != nil {

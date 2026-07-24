@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"golang.org/x/sync/errgroup"
 
 	"olivine/internal/data"
@@ -42,6 +43,9 @@ func (app *App) Run() error {
 			slog.Error("failed to shutdown otel", slog.Any("error", err))
 		}
 	}()
+	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second)); err != nil {
+		return err
+	}
 
 	slog.Info("restoring data from disk")
 	if err := app.server.RestoreFromDisk(); err != nil {

@@ -3,9 +3,15 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
+	"log"
+	"log/slog"
+	"os"
 
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/otel"
+	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -67,7 +73,31 @@ func SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
 	global.SetLoggerProvider(loggerProvider)
 
+	// Bridge the standard slog logger to OpenTelemetry while preserving its
+	// existing console output.
+	defaultLogger := slog.Default()
+	defaultLogWriter := log.Writer()
+	defaultLogFlags := log.Flags()
+	defaultLogPrefix := log.Prefix()
+	slog.SetDefault(newSlogLogger(os.Stderr, loggerProvider))
+	shutdownFuncs = append(shutdownFuncs, func(context.Context) error {
+		slog.SetDefault(defaultLogger)
+		log.SetOutput(defaultLogWriter)
+		log.SetFlags(defaultLogFlags)
+		log.SetPrefix(defaultLogPrefix)
+		return nil
+	})
+
 	return shutdown, err
+}
+
+func newSlogLogger(consoleWriter io.Writer, loggerProvider otellog.LoggerProvider) *slog.Logger {
+	consoleHandler := slog.NewTextHandler(consoleWriter, nil)
+	otelHandler := otelslog.NewHandler(
+		"olivine",
+		otelslog.WithLoggerProvider(loggerProvider),
+	)
+	return slog.New(slog.NewMultiHandler(consoleHandler, otelHandler))
 }
 
 func newPropagator() propagation.TextMapPropagator {

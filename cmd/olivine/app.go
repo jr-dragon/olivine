@@ -33,6 +33,16 @@ func (app *App) Run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	otelShutdown, err := service.SetupOTelSDK(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := otelShutdown(context.Background()); err != nil {
+			slog.Error("failed to shutdown otel", slog.Any("error", err))
+		}
+	}()
+
 	slog.Info("restoring data from disk")
 	if err := app.server.RestoreFromDisk(); err != nil {
 		return err

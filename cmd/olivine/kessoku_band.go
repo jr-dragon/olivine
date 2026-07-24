@@ -4,6 +4,8 @@ package main
 
 import (
 	"github.com/mazrean/kessoku"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"net/http"
 	"olivine/internal/data"
 	"olivine/internal/repo"
@@ -14,6 +16,9 @@ import (
 
 func NewApp(config *data.Config) (*App, error) {
 	storage := kessoku.Bind[repo.Storage](kessoku.Provide(repo.NewStorage)).Fn()()
+	tracer := kessoku.Bind[trace.Tracer](kessoku.Provide(func() trace.Tracer {
+		return otel.Tracer("olivine")
+	})).Fn()()
 	var err error
 	aof, err := kessoku.Bind[service.AOF](kessoku.Provide(func(cfg *data.Config) (service.AOF, error) {
 		if !cfg.AOFEnabled {
@@ -25,15 +30,15 @@ func NewApp(config *data.Config) (*App, error) {
 		var zero *App
 		return zero, err
 	}
-	val := kessoku.Provide(cmd.NewCommands).Fn()(storage)
+	val := kessoku.Provide(cmd.NewCommands).Fn()(storage, tracer)
 	worker := kessoku.Bind[service.Worker](kessoku.Provide(service.NewWorker)).Fn()(config, aof, storage)
-	handler := kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, cmds []cmd.Command) server.Handler {
+	handler := kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, tracer trace.Tracer, cmds []cmd.Command) server.Handler {
 		middlewares := []server.Middleware{}
 		if cfg.AOFEnabled {
 			middlewares = append(middlewares, server.NewAOFMiddleware(aof))
 		}
-		return server.NewHandler(cmds, middlewares...)
-	})).Fn()(config, aof, val)
+		return server.NewHandler(tracer, cmds, middlewares...)
+	})).Fn()(config, aof, tracer, val)
 	restorer := kessoku.Bind[server.Restorer](kessoku.Provide(func(cfg *data.Config, aof service.AOF, handler server.Handler) server.Restorer {
 		if !cfg.AOFEnabled {
 			return nil

@@ -5,18 +5,23 @@ import (
 	"errors"
 	"fmt"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"olivine/internal/repo"
 	"olivine/internal/repo/object"
+	"olivine/internal/util"
 	"olivine/pkg/resp"
 )
 
 type Get struct {
 	storage repo.Storage
+	tracer  trace.Tracer
 }
 
-func NewGet(storage repo.Storage) *Get {
+func NewGet(storage repo.Storage, tracers ...trace.Tracer) *Get {
 	return &Get{
 		storage: storage,
+		tracer:  util.SelectTracer(tracers),
 	}
 }
 
@@ -24,7 +29,10 @@ func (c *Get) Command() string {
 	return "GET"
 }
 
-func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
+func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (ret resp.Value, err error) {
+	ctx, span := util.StartCommandSpan(ctx, c.tracer, "cmd.(*Get).Exec", cmd)
+	defer func() { util.EndSpan(span, err) }()
+
 	if err := c.parse(cmd); err != nil {
 		return nil, err
 	}
@@ -40,14 +48,14 @@ func (c *Get) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
 		return nil, fmt.Errorf("%w: %w", ErrStorage, err)
 	}
 
-	var ret resp.Value
+	var value resp.Value
 	if str, ok := v.(*object.String); ok {
-		ret = resp.NewBulkString(str.String())
+		value = resp.NewBulkString(str.String())
 	} else {
-		ret = resp.NewSimpleError(ErrWrongType)
+		value = resp.NewSimpleError(ErrWrongType)
 	}
 
-	return ret, nil
+	return value, nil
 }
 
 func (c *Get) parse(cmd *resp.Command) error {

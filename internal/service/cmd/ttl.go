@@ -6,17 +6,22 @@ import (
 	"fmt"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"olivine/internal/repo"
+	"olivine/internal/util"
 	"olivine/pkg/resp"
 )
 
 type TTL struct {
 	storage repo.Storage
+	tracer  trace.Tracer
 }
 
-func NewTTL(storage repo.Storage) *TTL {
+func NewTTL(storage repo.Storage, tracers ...trace.Tracer) *TTL {
 	return &TTL{
 		storage: storage,
+		tracer:  util.SelectTracer(tracers),
 	}
 }
 
@@ -24,7 +29,10 @@ func (c *TTL) Command() string {
 	return "TTL"
 }
 
-func (c *TTL) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
+func (c *TTL) Exec(ctx context.Context, cmd *resp.Command) (ret resp.Value, err error) {
+	ctx, span := util.StartCommandSpan(ctx, c.tracer, "cmd.(*TTL).Exec", cmd)
+	defer func() { util.EndSpan(span, err) }()
+
 	if err := c.parse(cmd); err != nil {
 		return nil, err
 	}

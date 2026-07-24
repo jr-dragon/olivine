@@ -5,6 +5,8 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/mazrean/kessoku"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"olivine/internal/data"
 	"olivine/internal/repo"
@@ -21,6 +23,9 @@ var _ = kessoku.Inject[*App](
 	kessoku.Bind[repo.Storage](kessoku.Provide(repo.NewStorage)),
 
 	// services
+	kessoku.Bind[trace.Tracer](kessoku.Provide(func() trace.Tracer {
+		return otel.Tracer("olivine")
+	})),
 	kessoku.Bind[service.AOF](kessoku.Provide(func(cfg *data.Config) (service.AOF, error) {
 		if !cfg.AOFEnabled {
 			return nil, nil
@@ -32,13 +37,13 @@ var _ = kessoku.Inject[*App](
 	kessoku.Bind[service.Worker](kessoku.Provide(service.NewWorker)),
 
 	// servers
-	kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, cmds []cmd.Command) server.Handler {
+	kessoku.Bind[server.Handler](kessoku.Provide(func(cfg *data.Config, aof service.AOF, tracer trace.Tracer, cmds []cmd.Command) server.Handler {
 		middlewares := []server.Middleware{}
 		if cfg.AOFEnabled {
 			middlewares = append(middlewares, server.NewAOFMiddleware(aof))
 		}
 
-		return server.NewHandler(cmds, middlewares...)
+		return server.NewHandler(tracer, cmds, middlewares...)
 	})),
 	kessoku.Bind[server.Restorer](kessoku.Provide(func(cfg *data.Config, aof service.AOF, handler server.Handler) server.Restorer {
 		if !cfg.AOFEnabled {

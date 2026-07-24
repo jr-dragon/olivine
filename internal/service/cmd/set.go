@@ -8,24 +8,34 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"olivine/internal/repo"
 	"olivine/internal/repo/object"
+	"olivine/internal/util"
 	"olivine/pkg/resp"
 )
 
 type Set struct {
 	storage repo.Storage
+	tracer  trace.Tracer
 }
 
-func NewSet(storage repo.Storage) *Set {
-	return &Set{storage: storage}
+func NewSet(storage repo.Storage, tracers ...trace.Tracer) *Set {
+	return &Set{
+		storage: storage,
+		tracer:  util.SelectTracer(tracers),
+	}
 }
 
 func (c *Set) Command() string {
 	return "SET"
 }
 
-func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (resp.Value, error) {
+func (c *Set) Exec(ctx context.Context, cmd *resp.Command) (ret resp.Value, err error) {
+	ctx, span := util.StartCommandSpan(ctx, c.tracer, "cmd.(*Set).Exec", cmd)
+	defer func() { util.EndSpan(span, err) }()
+
 	param, err := c.parse(cmd)
 	if err != nil {
 		return resp.NewSimpleError(err), err

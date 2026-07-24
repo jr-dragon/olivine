@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"olivine/internal/repo"
 	"olivine/pkg/resp"
 )
@@ -12,13 +14,13 @@ type Command interface {
 	Exec(context.Context, *resp.Command) (resp.Value, error)
 }
 
-func NewCommands(storage repo.Storage) []Command {
+func NewCommands(storage repo.Storage, tracer trace.Tracer) []Command {
 	return []Command{
-		&Ping{},
+		NewPing(tracer),
 
-		NewSet(storage),
-		NewGet(storage),
+		NewSet(storage, tracer),
+		NewGet(storage, tracer),
 
-		NewTTL(storage),
+		NewTTL(storage, tracer),
 	}
 }

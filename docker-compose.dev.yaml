@@ -1,0 +1,68 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    restart: unless-stopped
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    depends_on:
+      - jaeger
+      - loki
+      - prometheus
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./deployments/observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+
+  prometheus:
+    image: prom/prometheus:v3.13.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-otlp-receiver
+    volumes:
+      - ./deployments/observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+
+  loki:
+    image: grafana/loki:3.7.0
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/loki/loki.yaml
+    volumes:
+      - ./deployments/observability/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+
+  grafana:
+    image: grafana/grafana:13.1.0
+    restart: unless-stopped
+    depends_on:
+      - jaeger
+      - loki
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./deployments/observability/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/observability.yaml:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  grafana-data:
+  loki-data:
+  prometheus-data:

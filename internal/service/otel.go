@@ -21,7 +21,14 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 )
 
-const serviceName = "olivine"
+const (
+	otelEnabledEnv = "OTEL_ENABLED"
+	serviceName    = "olivine"
+)
+
+func OTelEnabled() bool {
+	return os.Getenv(otelEnabledEnv) == "1"
+}
 
 // SetupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.

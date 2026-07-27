@@ -16,8 +16,12 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 )
+
+const serviceName = "olivine"
 
 // SetupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
@@ -46,8 +50,14 @@ func SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	prop := newPropagator()
 	otel.SetTextMapPropagator(prop)
 
+	res, err := newResource()
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
+
 	// Set up trace provider.
-	tracerProvider, err := newTracerProvider(ctx)
+	tracerProvider, err := newTracerProvider(ctx, res)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -56,7 +66,7 @@ func SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider(ctx)
+	meterProvider, err := newMeterProvider(ctx, res)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -65,7 +75,7 @@ func SetupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider(ctx)
+	loggerProvider, err := newLoggerProvider(ctx, res)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -107,18 +117,26 @@ func newPropagator() propagation.TextMapPropagator {
 	)
 }
 
-func newTracerProvider(ctx context.Context) (*sdktrace.TracerProvider, error) {
+func newResource() (*resource.Resource, error) {
+	return resource.Merge(
+		resource.Default(),
+		resource.NewSchemaless(semconv.ServiceName(serviceName)),
+	)
+}
+
+func newTracerProvider(ctx context.Context, res *resource.Resource) (*sdktrace.TracerProvider, error) {
 	spanExporter, err := autoexport.NewSpanExporter(ctx)
 	if err != nil {
 		return nil, err
 	}
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(spanExporter),
+		sdktrace.WithResource(res),
 	)
 	return tracerProvider, nil
 }
 
-func newMeterProvider(ctx context.Context) (*sdkmetric.MeterProvider, error) {
+func newMeterProvider(ctx context.Context, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
 	metricReader, err := autoexport.NewMetricReader(ctx)
 	if err != nil {
 		return nil, err
@@ -126,11 +144,12 @@ func newMeterProvider(ctx context.Context) (*sdkmetric.MeterProvider, error) {
 
 	meterProvider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(metricReader),
+		sdkmetric.WithResource(res),
 	)
 	return meterProvider, nil
 }
 
-func newLoggerProvider(ctx context.Context) (*sdklog.LoggerProvider, error) {
+func newLoggerProvider(ctx context.Context, res *resource.Resource) (*sdklog.LoggerProvider, error) {
 	logExporter, err := autoexport.NewLogExporter(ctx)
 	if err != nil {
 		return nil, err
@@ -138,6 +157,7 @@ func newLoggerProvider(ctx context.Context) (*sdklog.LoggerProvider, error) {
 
 	loggerProvider := sdklog.NewLoggerProvider(
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		sdklog.WithResource(res),
 	)
 	return loggerProvider, nil
 }

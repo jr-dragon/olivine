@@ -6,7 +6,7 @@ Inspired from [Build Redis From Scratch](https://www.build-redis-from-scratch.de
 
 ## Tutorial
 
-There're notes for this repository, read issues with `documentation` label.
+There're notes in this repository, read issues with `documentation` label, or visit [my website](https://chivincent.net/course/build-redis-from-scratch/).
 
 Chapter 1: The basic
 
@@ -27,7 +27,7 @@ Chapter 2: The advance
 - [Day 13: Key Expiration](https://github.com/jr-dragon/olivine/issues/13)
 - [Day 14: SET with exists KEYs](https://github.com/jr-dragon/olivine/issues/14)
 
-Chapter 3: (WIP)
+Chapter 3: Performance, Logging and Observation
 
 - [Day 15: Profiling with pprof](https://github.com/jr-dragon/olivine/issues/15)
 - [Day 16: Profiling with mutex lock](https://github.com/jr-dragon/olivine/issues/16)
